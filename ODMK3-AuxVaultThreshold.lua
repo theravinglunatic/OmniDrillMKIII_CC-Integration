@@ -3,16 +3,17 @@
 -- When redstone signal is present on bottom face, broadcasts "vault full" signal
 -- to prevent drilling system from moving until vault has space
 
+-- ========== Configuration ==========
 local NAME = "odmk3-aux-vault-threshold"
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Keep empty to disable, or match with other components
 local DEBUG = true  -- Set to false to disable debug messages
 local CHECK_INTERVAL = 1.0  -- How often to check vault status (seconds)
 
--- State tracking
+-- ========== State Tracking ==========
 local lastVaultFull = false
 
--- Utility: debug print function
+-- ========== Utilities ==========
 local function debugPrint(message)
     if DEBUG then
         print("[DEBUG] " .. message)
@@ -64,7 +65,7 @@ local function broadcastVaultStatus(vaultFull)
     debugPrint("Broadcasted vault status: " .. (vaultFull and "FULL" or "AVAILABLE"))
 end
 
--- Main function
+-- ========== Main Function ==========
 local function main()
     -- Initialize networking
     openAllModems()
@@ -117,5 +118,5 @@ local function main()
     end
 end
 
--- Start the main function
+-- ========== Startup ==========
 main()

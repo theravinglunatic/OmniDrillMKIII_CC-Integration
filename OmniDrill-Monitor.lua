@@ -3,6 +3,7 @@
 -- Displays real-time Create contraption and drilling system status
 -- Monitor: 3 blocks tall x 7 blocks wide (21x9 characters)
 
+-- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Keep empty to disable, or match with other components
 local DEBUG = false  -- Set to true for debug messages
@@ -10,13 +11,13 @@ local REFRESH_RATE = 1.0  -- How often to update display (seconds)
 local METRICS_FILE = "metrics"  -- Persistent metrics storage file
 local VAULT_CAPACITY = 103680  -- Maximum vault capacity in items
 
--- Monitor configuration
+-- ========== Monitor Configuration ==========
 local monitor = peripheral.find("monitor")
 local targetBlock = peripheral.find("create_target")
 local MONITOR_WIDTH = 21  -- Will be updated dynamically
 local MONITOR_HEIGHT = 9  -- Will be updated dynamically
 
--- System status tracking
+-- ========== System Status Tracking ==========
 local systemStatus = {
     -- Auto-Drive System
     autoDriveEnabled = false,
@@ -76,7 +77,7 @@ local colorScheme = {
     accent = colors.cyan
 }
 
--- Utility: debug print function
+-- ========== Utilities ==========
 local function debugPrint(message)
     if DEBUG then
         print("[DEBUG] " .. message)

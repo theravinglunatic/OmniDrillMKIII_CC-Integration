@@ -3,21 +3,22 @@
 -- Receives commands from GUI to toggle auto-drive mode
 -- Only sends move command when redstone safety signal is present on back face
 
+-- ========== Configuration ==========
 local NAME = "odmk3-auto-drive"
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Keep empty to disable, or match with other components
 local DEBUG = true  -- Set to false to disable debug messages
 local CHECK_INTERVAL = 0.5  -- How often to check safety signal when auto-drive is enabled
+local MIN_MOVE_INTERVAL = 0.5  -- Minimum seconds between move commands
+local MOVE_TIMEOUT = 10      -- Maximum seconds to wait for move acknowledgment
 
--- State tracking
+-- ========== State Tracking ==========
 local autoEnabled = false
 local lastMoveTime = 0
 local lastMoveSuccess = true
 local vaultFull = false  -- Track auxiliary vault status
-local MIN_MOVE_INTERVAL = 0.5  -- Minimum seconds between move commands
-local MOVE_TIMEOUT = 10      -- Maximum seconds to wait for move acknowledgment
 
--- Utility: debug print function
+-- ========== Utilities ==========
 local function debugPrint(message)
     if DEBUG then
         print("[DEBUG] " .. message)
@@ -110,7 +111,7 @@ local function toggleAutoMove(enabled, activeTimer)
     return activeTimer
 end
 
--- Main function
+-- ========== Main Function ==========
 local function main()
     -- Initialize networking
     openAllModems()
@@ -275,5 +276,5 @@ local function main()
     end
 end
 
--- Start the main function
+-- ========== Startup ==========
 main()

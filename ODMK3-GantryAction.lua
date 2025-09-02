@@ -2,18 +2,18 @@
 -- Omni-Drill MKIII: Gantry Action Controller
 -- Monitors front redstone signal and uses Sequenced Gearshift peripheral to control gantry movement
 
--- Configuration
+-- ========== Configuration ==========
+local DEBUG = true                  -- Enable debug output
 local GANTRY_DISTANCE = 11          -- Distance in meters for gantry to move
 local REDSTONE_CHECK_DELAY = 0.1    -- Seconds between redstone checks
-local DEBUG = true                  -- Enable debug output
 local GEARSHIFT_PERIPHERAL = nil    -- Set to specific name if needed, or leave nil to auto-detect
 
--- These values track the state to prevent repeat triggers
+-- ========== State Tracking ==========
 local lastRedstoneState = false     -- Last known state of front redstone input
 local isExecutingAction = false     -- Whether we're currently executing a movement sequence
 local gearshift = nil              -- Will hold the peripheral reference
 
--- Utility for debug messages
+-- ========== Utilities ==========
 local function debugPrint(message)
     if DEBUG then
         print("[DEBUG] " .. message)

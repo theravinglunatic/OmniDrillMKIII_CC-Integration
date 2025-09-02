@@ -5,18 +5,26 @@
 -- 2. On receipt, pulse BACK face briefly.
 -- 3. On startup, pulse FRONT face once.
 
+-- ========== Configuration ==========
 local NAME       = "odmk3-drive-controller"
 local PROTOCOL   = "Omni-DrillMKIII"      -- Shared with GUI & other components
 local SECRET     = ""                    -- Optional shared secret; leave blank to disable
+local DEBUG = true                        -- Set to false to disable debug messages
 
 -- Configuration
 local MOVE_PULSE_TICKS = 0.3              -- Seconds to keep back on
 local START_PULSE_TICKS = 0.25            -- Seconds for initial front pulse
 local USE_PARALLEL_PULSE = false          -- If true, pulse top & bottom concurrently (not really needed)
-local DEBUG = true                        -- Set to false to disable debug messages
 
--- State tracking
+-- ========== State Tracking ==========
 local vaultFull = false                   -- Track auxiliary vault status
+
+-- ========== Utilities ==========
+local function debugPrint(message)
+    if DEBUG then
+        print("[DEBUG] " .. message)
+    end
+end
 
 -- Utility: open any connected modems (wired or wireless)
 local function openAllModems()
@@ -25,7 +33,7 @@ local function openAllModems()
 		if peripheral.getType(side) == "modem" then
 			if not rednet.isOpen(side) then
 				pcall(function() rednet.open(side) end)
-				if DEBUG then print("[DEBUG] Opened modem on " .. side) end
+				debugPrint("Opened modem on " .. side)
 			end
 			modemFound = true
 		end
@@ -42,16 +50,16 @@ end
 
 local function pulse(side, duration)
 	if not side then return end
-	if DEBUG then print("[DEBUG] Pulsing redstone on " .. side .. " for " .. tostring(duration) .. "s") end
+	debugPrint("Pulsing redstone on " .. side .. " for " .. tostring(duration) .. "s")
 	redstone.setOutput(side, true)
 	sleep(duration or 0)
 	redstone.setOutput(side, false)
-	if DEBUG then print("[DEBUG] Pulse complete on " .. side) end
+	debugPrint("Pulse complete on " .. side)
 end
 
 local function activateDrill()
     -- Call the DrillControlON script on computer 21
-    if DEBUG then print("[DEBUG] Calling DrillControlON script") end
+    debugPrint("Calling DrillControlON script")
     
     -- Use shell command to run the script on computer 21
     local success, result = pcall(function()
@@ -67,7 +75,7 @@ local function activateDrill()
     end)
     
     if not success then
-        if DEBUG then print("[DEBUG] Failed to activate drill: " .. tostring(result)) end
+        debugPrint("Failed to activate drill: " .. tostring(result))
     end
     
     return success

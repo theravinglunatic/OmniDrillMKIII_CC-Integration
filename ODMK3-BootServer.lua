@@ -57,7 +57,7 @@ local ROLE_MAPPINGS = {
     ["OmniDrill-Monitor.lua"] = "monitor"
 }
 
--- ========== State ==========
+-- ========== State Tracking ==========
 local scriptCache = {}
 local deployedClients = {}
 local modem = nil

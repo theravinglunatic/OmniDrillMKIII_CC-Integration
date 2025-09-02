@@ -2,21 +2,20 @@
 -- Monitors machine orientation (cardinal + vertical) and emits redstone signals
 -- to reverse drive direction when needed based on current orientation.
 
+-- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local NAME = "odmk3-drive-shift"
 local SECRET = ""  -- optional shared secret
-
--- Configuration
 local DEBUG = true                  -- Enable debug output
 local REDSTONE_OUTPUT_SIDES = {"left", "top", "bottom"} -- The sides where redstone signals will be output
 local CHECK_INTERVAL = 1            -- How often to check for orientation updates (seconds)
 
--- State tracking
+-- ========== State Tracking ==========
 local currentCardinal = nil  -- N, E, S, W
 local currentVertical = nil  -- F, U, D
 local lastSignalState = false
 
--- Utility for debug messages
+-- ========== Utilities ==========
 local function debugPrint(message)
     if DEBUG then
         print("[DEBUG] " .. message)

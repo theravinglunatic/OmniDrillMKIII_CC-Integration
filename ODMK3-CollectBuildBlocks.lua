@@ -2,16 +2,24 @@
 -- Omni-Drill MKIII: Build Blocks Collection Controller
 -- Controls redstone output to Create Item Funnel for build block collection
 
--- ========== config ==========
+-- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local MY_NAME = "odmk3-collect-build-blocks"
 local SECRET = ""  -- optional shared secret
-local NET_OK = false
+local DEBUG = false  -- Set to true to enable debug messages
 
--- Collection state
+-- ========== State Tracking ==========
+local NET_OK = false
 local collectionEnabled = nil  -- Will be set after querying GUI at startup
 
--- ========== networking ==========
+-- ========== Utilities ==========
+local function debugPrint(message)
+    if DEBUG then
+        print("[DEBUG] " .. message)
+    end
+end
+
+-- ========== Networking ==========
 local function openAllModems()
     for _, side in ipairs(rs.getSides()) do
         if peripheral.getType(side) == "modem" then
@@ -146,9 +154,9 @@ local function main()
         updateRedstoneOutput()
     end
     
-    print("Controller ready")
+    print("ODMK3-CollectBuildBlocks initialized")
     print("Collection state: " .. (collectionEnabled and "ENABLED" or "DISABLED"))
-    print("Press Ctrl+T to exit")
+    debugPrint("Controller ready for commands")
     
     while true do
         local event, param1, param2, param3 = os.pullEvent()
