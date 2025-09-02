@@ -219,6 +219,49 @@ local function deployToClient(clientId, scriptName)
     end
 end
 
+local function listClients()
+    print("Scanning for available clients...")
+    
+    local message = {
+        cmd = "ping",
+        secret = ""
+    }
+    
+    rednet.broadcast(message, DEPLOY_PROTOCOL)
+    
+    local timer = os.startTimer(5) -- 5 second scan
+    local clients = {}
+    
+    while true do
+        local event, p1, p2, p3 = os.pullEvent()
+        
+        if event == "rednet_message" then
+            local senderId, msg, protocol = p1, p2, p3
+            if protocol == DEPLOY_PROTOCOL and type(msg) == "table" then
+                if msg.cmd == "pong" then
+                    clients[senderId] = {
+                        role = msg.role or "unassigned",
+                        label = msg.label or ("Computer #" .. senderId)
+                    }
+                end
+            end
+        elseif event == "timer" and p1 == timer then
+            break
+        end
+    end
+    
+    if next(clients) then
+        print("Available clients:")
+        for id, info in pairs(clients) do
+            print("  " .. id .. ": " .. info.label .. " (" .. info.role .. ")")
+        end
+    else
+        print("No clients found.")
+    end
+    
+    return clients
+end
+
 local function deployToAll(scriptName)
     print("Deploying role-specific scripts to all clients...")
     
@@ -284,49 +327,6 @@ local function deployToAll(scriptName)
     end
     
     return ackCount, errors
-end
-
-local function listClients()
-    print("Scanning for available clients...")
-    
-    local message = {
-        cmd = "ping",
-        secret = ""
-    }
-    
-    rednet.broadcast(message, DEPLOY_PROTOCOL)
-    
-    local timer = os.startTimer(5) -- 5 second scan
-    local clients = {}
-    
-    while true do
-        local event, p1, p2, p3 = os.pullEvent()
-        
-        if event == "rednet_message" then
-            local senderId, msg, protocol = p1, p2, p3
-            if protocol == DEPLOY_PROTOCOL and type(msg) == "table" then
-                if msg.cmd == "pong" then
-                    clients[senderId] = {
-                        role = msg.role or "unassigned",
-                        label = msg.label or ("Computer #" .. senderId)
-                    }
-                end
-            end
-        elseif event == "timer" and p1 == timer then
-            break
-        end
-    end
-    
-    if next(clients) then
-        print("Available clients:")
-        for id, info in pairs(clients) do
-            print("  " .. id .. ": " .. info.label .. " (" .. info.role .. ")")
-        end
-    else
-        print("No clients found.")
-    end
-    
-    return clients
 end
 
 -- ========== Command Interface ==========
