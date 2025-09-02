@@ -9,9 +9,37 @@ local REDSTONE_CHECK_DELAY = 0.1    -- Seconds between redstone checks
 local GEARSHIFT_PERIPHERAL = nil    -- Set to specific name if needed, or leave nil to auto-detect
 
 -- ========== State Tracking ==========
-local lastRedstoneState = false     -- Last known state of front redstone input
+local lastRedstoneStates = {        -- Last known state of redstone inputs
+    bottom = false,
+    left = false,
+    right = false
+}
 local isExecutingAction = false     -- Whether we're currently executing a movement sequence
 local gearshift = nil              -- Will hold the peripheral reference
+
+-- Function to check if any monitored redstone input is active
+local function isRedstoneActive()
+    return redstone.getInput("bottom") or redstone.getInput("left") or redstone.getInput("right")
+end
+
+-- Function to get current redstone states
+local function getCurrentRedstoneStates()
+    return {
+        bottom = redstone.getInput("bottom"),
+        left = redstone.getInput("left"),
+        right = redstone.getInput("right")
+    }
+end
+
+-- Function to detect rising edge on any monitored face
+local function detectRisingEdge(currentStates, lastStates)
+    for face, currentState in pairs(currentStates) do
+        if currentState and not lastStates[face] then
+            return true, face
+        end
+    end
+    return false, nil
+end
 
 -- ========== Utilities ==========
 local function debugPrint(message)
@@ -109,8 +137,8 @@ local function executeGantrySequence()
     isExecutingAction = false
 end
 
--- Initialize state by getting current redstone input
-lastRedstoneState = redstone.getInput("front")
+-- Initialize state by getting current redstone inputs
+lastRedstoneStates = getCurrentRedstoneStates()
 
 -- Try to connect to the gearshift peripheral
 if connectToGearshift() then
@@ -127,25 +155,33 @@ for i, name in ipairs(peripheral.getNames()) do
     debugPrint("  - " .. name .. " (" .. pType .. ")")
 end
 
-debugPrint("Initialized - front redstone state: " .. (lastRedstoneState and "ON" or "OFF"))
+local function formatRedstoneStates(states)
+    return string.format("bottom=%s, left=%s, right=%s", 
+        states.bottom and "ON" or "OFF",
+        states.left and "ON" or "OFF", 
+        states.right and "ON" or "OFF")
+end
+
+debugPrint("Initialized - redstone states: " .. formatRedstoneStates(lastRedstoneStates))
 
 -- Handle case where redstone is already active at startup
-if lastRedstoneState then
+if isRedstoneActive() then
     debugPrint("Redstone signal already active at startup")
     debugPrint("Executing gantry sequence after 0.2-second delay...")
     sleep(0.2) -- Short delay to allow system to fully initialize
     executeGantrySequence()
 end
 
-debugPrint("Waiting for redstone signal on front face")
+debugPrint("Waiting for redstone signal on bottom, left, or right faces")
 
 -- Main loop to monitor redstone state
 while true do
-    local currentRedstoneState = redstone.getInput("front")
+    local currentRedstoneStates = getCurrentRedstoneStates()
     
-    -- Detect rising edge (signal went from OFF to ON)
-    if currentRedstoneState and not lastRedstoneState then
-        debugPrint("Redstone signal detected on front face")
+    -- Detect rising edge (signal went from OFF to ON on any monitored face)
+    local risingEdge, triggeredFace = detectRisingEdge(currentRedstoneStates, lastRedstoneStates)
+    if risingEdge then
+        debugPrint("Redstone signal detected on " .. triggeredFace .. " face")
         executeGantrySequence()
     end
     
@@ -155,6 +191,6 @@ while true do
         connectToGearshift()
     end
     
-    lastRedstoneState = currentRedstoneState
+    lastRedstoneStates = currentRedstoneStates
     sleep(REDSTONE_CHECK_DELAY)
 end
