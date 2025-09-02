@@ -418,44 +418,73 @@ local function runScript()
     print("Starting role script: " .. currentScript)
     -- Removed startup delay for faster launch
     
-    -- Special handling for onboard-command: run in parallel with boot server access
+    -- Special handling for onboard-command: use multishell to run GUI and boot server in separate tabs
     if currentRole == "onboard-command" then
-        print("Onboard Command mode: Boot Server also available")
-        print("Type 'boot' to access Boot Server console")
+        print("Onboard Command mode: Starting GUI and Boot Server in separate tabs")
         
-        parallel.waitForAny(
-            function()
-                -- Run the onboard command script
-                local success, error = pcall(function()
-                    shell.run(currentScript)
-                end)
-                
-                if not success then
-                    print("Error running onboard script: " .. error)
-                    print("Script will restart in 5 seconds...")
-                    sleep(5)
-                end
-            end,
-            function()
-                -- Handle boot server console access
-                while true do
-                    local event, param1 = os.pullEvent()
-                    if event == "char" and param1 == "b" then
-                        -- Check if full "boot" command
-                        local input = "b" .. read()
-                        if input == "boot" then
-                            if fs.exists("ODMK3-BootServer.lua") then
-                                print("Starting Boot Server console...")
-                                shell.run("ODMK3-BootServer.lua")
-                                print("Boot Server console closed. Returning to onboard command.")
-                            else
-                                print("Boot Server not found. Try redeploying the onboard-command role.")
+        -- Check if multishell is available
+        if multishell then
+            -- Launch the onboard command GUI in the current tab (tab 1)
+            local guiTab = multishell.getCurrent()
+            multishell.setTitle(guiTab, "Onboard GUI")
+            
+            -- Launch the boot server in a new tab (tab 2) 
+            local bootTab = multishell.launch({}, "ODMK3-BootServer.lua")
+            multishell.setTitle(bootTab, "Boot Server")
+            
+            print("Starting Onboard Command GUI...")
+            print("Boot Server available in tab 2")
+            sleep(1)
+            
+            -- Run the onboard command script in this tab
+            local success, error = pcall(function()
+                shell.run(currentScript)
+            end)
+            
+            if not success then
+                print("Error running onboard script: " .. error)
+                print("Script will restart in 5 seconds...")
+                sleep(5)
+            end
+        else
+            -- Fallback to parallel execution if multishell not available
+            print("Multishell not available, using parallel execution")
+            print("Type 'boot' to access Boot Server console")
+            
+            parallel.waitForAny(
+                function()
+                    -- Run the onboard command script
+                    local success, error = pcall(function()
+                        shell.run(currentScript)
+                    end)
+                    
+                    if not success then
+                        print("Error running onboard script: " .. error)
+                        print("Script will restart in 5 seconds...")
+                        sleep(5)
+                    end
+                end,
+                function()
+                    -- Handle boot server console access
+                    while true do
+                        local event, param1 = os.pullEvent()
+                        if event == "char" and param1 == "b" then
+                            -- Check if full "boot" command
+                            local input = "b" .. read()
+                            if input == "boot" then
+                                if fs.exists("ODMK3-BootServer.lua") then
+                                    print("Starting Boot Server console...")
+                                    shell.run("ODMK3-BootServer.lua")
+                                    print("Boot Server console closed. Returning to onboard command.")
+                                else
+                                    print("Boot Server not found. Try redeploying the onboard-command role.")
+                                end
                             end
                         end
                     end
                 end
-            end
-        )
+            )
+        end
     else
         -- Standard script execution for other roles
         local success, error = pcall(function()
