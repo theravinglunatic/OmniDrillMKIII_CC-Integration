@@ -61,7 +61,7 @@ local function queryCardinalFacing()
 	rednet.broadcast({
 		name = READER_NAME,
 		cmd = "queryFacing",
-		secret = SECRET
+		secret = ""
 	}, PROTOCOL)
 end
 

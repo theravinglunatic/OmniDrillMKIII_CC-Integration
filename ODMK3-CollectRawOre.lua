@@ -58,7 +58,7 @@ local function handleToggleCommand(msg)
         rednet.broadcast({
             type = "rawOreStatus",
             enabled = collectionEnabled,
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
     end
     
@@ -77,7 +77,7 @@ local function handleStatusQuery(msg)
         rednet.broadcast({
             type = "rawOreStatus",
             enabled = collectionEnabled,
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
     end
     
@@ -118,7 +118,7 @@ local function main()
             name = "odmk3-command-center",
             cmd = "queryState",
             type = "rawOre",
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
         
         -- Wait for initial state response (with timeout)

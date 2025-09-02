@@ -65,7 +65,7 @@ local function initiateMove()
     rednet.broadcast({
         name = "odmk3-drive-controller",
         cmd = "move",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     lastMoveTime = currentTime
@@ -80,7 +80,7 @@ local function broadcastStatus()
         name = NAME,
         enabled = autoEnabled,
         safe = isSafeToMove(),
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
 end
 
@@ -129,7 +129,7 @@ local function main()
     rednet.broadcast({
         type = "autoStateQuery",
         name = NAME,
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     -- Wait briefly for response to sync state after reboot
@@ -164,7 +164,7 @@ local function main()
     rednet.broadcast({
         name = "odmk3-aux-vault-threshold",
         cmd = "status",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     -- Broadcast our current status
