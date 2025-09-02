@@ -7,7 +7,7 @@
 local NAME = "odmk3-auto-drive"
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Keep empty to disable, or match with other components
-local DEBUG = true  -- Set to false to disable debug messages
+local DEBUG = false  -- Set to false to disable debug messages
 local CHECK_INTERVAL = 0.5  -- How often to check safety signal when auto-drive is enabled
 local MIN_MOVE_INTERVAL = 0.5  -- Minimum seconds between move commands
 local MOVE_TIMEOUT = 10      -- Maximum seconds to wait for move acknowledgment

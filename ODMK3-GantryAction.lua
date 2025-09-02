@@ -3,7 +3,7 @@
 -- Monitors front redstone signal and uses Sequenced Gearshift peripheral to control gantry movement
 
 -- ========== Configuration ==========
-local DEBUG = true                  -- Enable debug output
+local DEBUG = false                  -- Enable debug output
 local GANTRY_DISTANCE = 11          -- Distance in meters for gantry to move
 local REDSTONE_CHECK_DELAY = 0.1    -- Seconds between redstone checks
 local GEARSHIFT_PERIPHERAL = nil    -- Set to specific name if needed, or leave nil to auto-detect

@@ -6,7 +6,7 @@
 local PROTOCOL = "Omni-DrillMKIII"
 local NAME = "odmk3-gantry-shift"
 local SECRET = ""  -- optional shared secret
-local DEBUG = true                  -- Enable debug output
+local DEBUG = false                  -- Enable debug output
 local REDSTONE_OUTPUT_SIDE = "back" -- The side where redstone signal will be output
 local CHECK_INTERVAL = 1            -- How often to check for orientation updates (seconds)
 

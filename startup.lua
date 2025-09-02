@@ -5,7 +5,7 @@
 -- ========== Configuration ==========
 local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
-local DEBUG = true  -- Set to false in production for maximum startup speed
+local DEBUG = false  -- Set to false in production for maximum startup speed
 
 -- Role storage
 local ROLE_FILE = ".odmk3_role"

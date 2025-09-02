@@ -6,7 +6,7 @@
 local NAME = "odmk3-drill-control"
 local PROTOCOL = "Omni-DrillMKIII"  -- Same protocol as other components
 local SECRET = ""                  -- Keep empty to disable, or match with other components
-local DEBUG = true                 -- Set to false to disable debug messages
+local DEBUG = false                 -- Set to false to disable debug messages
 local PULSE_DURATION = 0.3         -- Duration of the pulse in seconds
 
 -- ========== Utilities ==========

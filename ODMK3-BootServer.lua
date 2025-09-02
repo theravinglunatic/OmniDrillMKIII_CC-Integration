@@ -6,7 +6,7 @@
 local PROTOCOL = "Omni-DrillMKIII"
 local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
-local DEBUG = true
+local DEBUG = false
 
 -- GitHub Configuration
 local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"

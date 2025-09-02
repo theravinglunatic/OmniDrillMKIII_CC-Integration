@@ -7,7 +7,7 @@
 local NAME = "odmk3-aux-vault-threshold"
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Keep empty to disable, or match with other components
-local DEBUG = true  -- Set to false to disable debug messages
+local DEBUG = false  -- Set to false to disable debug messages
 local CHECK_INTERVAL = 1.0  -- How often to check vault status (seconds)
 
 -- ========== State Tracking ==========

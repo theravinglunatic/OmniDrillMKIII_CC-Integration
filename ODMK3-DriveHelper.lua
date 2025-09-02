@@ -2,7 +2,7 @@
 -- Monitors redstone signal on back face and outputs a delayed pulse on front face
 
 -- ========== Configuration ==========
-local DEBUG = true                    -- Enable debug output
+local DEBUG = false                    -- Enable debug output
 local INPUT_SIDE = "back"            -- Side to monitor for input signal
 local OUTPUT_SIDE = "front"          -- Side to output the pulse
 local DELAY_SECONDS = 1.2            -- Delay between input and output pulse

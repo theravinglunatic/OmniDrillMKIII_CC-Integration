@@ -9,7 +9,7 @@
 local NAME       = "odmk3-drive-controller"
 local PROTOCOL   = "Omni-DrillMKIII"      -- Shared with GUI & other components
 local SECRET     = ""                    -- Optional shared secret; leave blank to disable
-local DEBUG = true                        -- Set to false to disable debug messages
+local DEBUG = false                        -- Set to false to disable debug messages
 
 -- Configuration
 local MOVE_PULSE_TICKS = 0.3              -- Seconds to keep back on

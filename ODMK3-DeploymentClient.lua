@@ -5,7 +5,7 @@
 -- ========== Configuration ==========
 local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
-local DEBUG = true
+local DEBUG = false
 
 -- ========== Utilities ==========
 local function log(message)
