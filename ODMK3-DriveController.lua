@@ -59,7 +59,7 @@ local function activateDrill()
         rednet.broadcast({
             name = "odmk3-drill-control",
             cmd = "activate",
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
         
         -- Brief pause to allow drill to activate
@@ -151,7 +151,7 @@ local function main()
 	rednet.broadcast({
 		name = "odmk3-aux-vault-threshold",
 		cmd = "status",
-		secret = SECRET
+		secret = ""
 	}, PROTOCOL)
 	
 	if DEBUG then print("[DEBUG] " .. NAME .. " ready and listening on " .. PROTOCOL) end

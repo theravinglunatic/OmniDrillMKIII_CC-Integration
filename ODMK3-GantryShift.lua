@@ -85,14 +85,14 @@ local function queryOrientation()
     rednet.broadcast({
         name = "odmk3-cardinal-reader",
         cmd = "queryFacing",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     debugPrint("Requesting current vertical orientation")
     rednet.broadcast({
         name = "odmk3-vert-reader",
         cmd = "queryOrientation",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
 end
 

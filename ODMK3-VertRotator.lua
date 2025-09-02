@@ -63,7 +63,7 @@ local function queryVertOrientation()
     rednet.broadcast({
         name = READER_NAME,
         cmd = "queryOrientation",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
 end
 
@@ -73,7 +73,7 @@ local function queryCardinalDirection()
     rednet.broadcast({
         name = CARDINAL_READER_NAME,
         cmd = "queryFacing",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
 end
 

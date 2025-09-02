@@ -10,7 +10,7 @@ This is a **ComputerCraft Lua distributed control system** for a Minecraft Creat
 -- Standard networking setup
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Optional authentication
-rednet.broadcast({ name = "target-component", cmd = "command", secret = SECRET }, PROTOCOL)
+rednet.broadcast({ name = "target-component", cmd = "command", secret = "" }, PROTOCOL)
 ```
 
 ### Component Categories

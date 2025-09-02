@@ -111,19 +111,19 @@ local function queryCollectionStates()
     rednet.broadcast({
         name = "odmk3-collect-nat-blocks",
         cmd = "status",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     rednet.broadcast({
         name = "odmk3-collect-build-blocks", 
         cmd = "status",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     rednet.broadcast({
         name = "odmk3-collect-raw-ore",
         cmd = "status", 
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
 end
 
@@ -412,13 +412,13 @@ local function sendDirection(dir)
         -- Cardinal directions
         pendingTarget = dir
         lastStatusMsg = nil
-        rednet.broadcast({ name = ROTATER_NAME, cmd = "setFacing", target = dir, secret = SECRET }, PROTOCOL)
+        rednet.broadcast({ name = ROTATER_NAME, cmd = "setFacing", target = dir, secret = "" }, PROTOCOL)
         updateStatusLine()
     elseif dir == "U" or dir == "D" or dir == "F" then
         -- Vertical directions
         pendingTarget = dir
         lastStatusMsg = nil
-        rednet.broadcast({ name = VERT_ROTATER_NAME, cmd = "setFacing", target = dir, secret = SECRET }, PROTOCOL)
+        rednet.broadcast({ name = VERT_ROTATER_NAME, cmd = "setFacing", target = dir, secret = "" }, PROTOCOL)
         updateStatusLine()
     end
 end
@@ -442,7 +442,7 @@ local function press(id)
         if NET_OK then
             pendingTarget = "MOVE"
             lastStatusMsg = nil
-            rednet.broadcast({ name = "odmk3-drive-controller", cmd = "move", secret = SECRET }, PROTOCOL)
+            rednet.broadcast({ name = "odmk3-drive-controller", cmd = "move", secret = "" }, PROTOCOL)
             lastStatusMsg = "MOVE COMMAND SENT"
         else
             lastStatusMsg = "CANNOT MOVE - OFFLINE"
@@ -460,7 +460,7 @@ local function press(id)
                 name = "odmk3-auto-drive", 
                 cmd = "toggle", 
                 enabled = newState, 
-                secret = SECRET 
+                secret = "" 
             }, PROTOCOL)
             
             -- Update button appearance
@@ -487,7 +487,7 @@ local function press(id)
                 name = "odmk3-collect-nat-blocks",
                 cmd = "toggle",
                 enabled = newState,
-                secret = SECRET
+                secret = ""
             }, PROTOCOL)
             
             -- Update button appearance for status box
@@ -514,7 +514,7 @@ local function press(id)
                 name = "odmk3-collect-build-blocks",
                 cmd = "toggle",
                 enabled = newState,
-                secret = SECRET
+                secret = ""
             }, PROTOCOL)
             
             -- Update button appearance for status box
@@ -541,7 +541,7 @@ local function press(id)
                 name = "odmk3-collect-raw-ore",
                 cmd = "toggle",
                 enabled = newState,
-                secret = SECRET
+                secret = ""
             }, PROTOCOL)
             
             -- Update button appearance for status box
@@ -751,19 +751,19 @@ local function handleStateQuery(msg)
         rednet.broadcast({
             type = "natBlocksStatus",
             enabled = collectNatBlocksEnabled,
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
     elseif msg.type == "buildBlocks" then
         rednet.broadcast({
             type = "buildBlocksStatus", 
             enabled = collectBuildBlocksEnabled,
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
     elseif msg.type == "rawOre" then
         rednet.broadcast({
             type = "rawOreStatus",
             enabled = collectRawOreEnabled,
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
     end
 end
@@ -812,7 +812,7 @@ local function main()
         rednet.broadcast({
             name = "odmk3-auto-drive",
             cmd = "status",
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
         
         -- Query collection controllers for current states
@@ -820,13 +820,13 @@ local function main()
         rednet.broadcast({
             name = "odmk3-collect-nat-blocks",
             cmd = "status",
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
         
         rednet.broadcast({
             name = "odmk3-collect-build-blocks", 
             cmd = "status",
-            secret = SECRET
+            secret = ""
         }, PROTOCOL)
     end
     

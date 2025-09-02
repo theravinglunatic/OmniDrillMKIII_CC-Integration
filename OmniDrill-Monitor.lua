@@ -682,19 +682,19 @@ local function main()
     rednet.broadcast({
         name = "odmk3-collect-nat-blocks",
         cmd = "status",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     rednet.broadcast({
         name = "odmk3-collect-build-blocks", 
         cmd = "status",
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     rednet.broadcast({
         name = "odmk3-collect-raw-ore",
         cmd = "status", 
-        secret = SECRET
+        secret = ""
     }, PROTOCOL)
     
     -- Initial vault data read

@@ -50,7 +50,7 @@ local function deployStartupToAll()
         cmd = "deploy_broadcast",
         script = "startup.lua",
         content = content,
-        secret = SECRET
+        secret = ""
     }
     
     rednet.broadcast(message, DEPLOY_PROTOCOL)

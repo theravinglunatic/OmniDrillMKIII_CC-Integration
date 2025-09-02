@@ -135,7 +135,7 @@ end
 local function getClientRole(clientId)
     local message = {
         cmd = "ping",
-        secret = SECRET
+        secret = ""
     }
     
     rednet.send(clientId, message, DEPLOY_PROTOCOL)
@@ -190,7 +190,7 @@ local function deployToClient(clientId, scriptName)
         cmd = "deploy",
         script = scriptName,
         content = scriptCache[scriptName],
-        secret = SECRET
+        secret = ""
     }
     
     log("Deploying " .. scriptName .. " to client " .. clientId)
@@ -291,7 +291,7 @@ local function listClients()
     
     local message = {
         cmd = "ping",
-        secret = SECRET
+        secret = ""
     }
     
     rednet.broadcast(message, DEPLOY_PROTOCOL)

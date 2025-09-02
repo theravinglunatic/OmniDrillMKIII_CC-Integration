@@ -57,7 +57,7 @@ local function broadcastVaultStatus(vaultFull)
         type = "vaultStatus",
         name = NAME,
         vaultFull = vaultFull,
-        secret = SECRET
+        secret = ""
     }
     
     rednet.broadcast(message, PROTOCOL)
