@@ -329,8 +329,14 @@ local function layoutCollectionPage(top, bottom)
     addListItem("BUILD_BLOCKS", "Build Blocks\nCollection", 2, collectBuildBlocksEnabled or true)
     addListItem("RAW_ORE", "Raw Ore\nCollection", 3, collectRawOreEnabled or true)
     
-    -- Page navigation button
-    local navY = startY + listHeight + 3
+    -- Boot Server button (centered below collection controls)
+    local bootY = startY + listHeight + 2
+    local bootW = 12
+    local bootX = math.floor((MONITOR_WIDTH - bootW) / 2) + 1
+    addButtonWithColor("BOOT_SERVER", "BOOT SERVER", bootX, bootY, bootX + bootW - 1, bootY + 2, colors.orange)
+    
+    -- Page navigation button (moved down to make room for boot server button)
+    local navY = bootY + 4
     local navW = 10
     local navX = math.floor((MONITOR_WIDTH - navW) / 2) + 1
     addButtonWithColor("PAGE", "MOVEMENT", navX, navY, navX + navW - 1, navY + 2, colors.gray)
@@ -557,6 +563,46 @@ local function press(id)
             lastStatusMsg = "CANNOT TOGGLE COLLECTION - OFFLINE"
         end
         redraw()
+    
+    elseif id == "BOOT_SERVER" then
+        -- Launch boot server console
+        lastStatusMsg = "STARTING BOOT SERVER CONSOLE..."
+        updateStatusLine()
+        
+        if fs.exists("ODMK3-BootServer.lua") then
+            -- Clear monitor and show boot server message
+            monitor.clear()
+            monitor.setCursorPos(1, 1)
+            monitor.setTextColor(colors.white)
+            monitor.setBackgroundColor(colors.black)
+            monitor.write("Boot Server Console Starting...")
+            monitor.setCursorPos(1, 2)
+            monitor.write("Use main computer terminal.")
+            monitor.setCursorPos(1, 3)
+            monitor.write("Touch screen to return.")
+            
+            -- Run boot server in background and wait for screen touch to return
+            local bootServerPid = shell.openTab("ODMK3-BootServer.lua")
+            
+            -- Wait for touch to return to GUI
+            while true do
+                local event, side, x, y = os.pullEvent()
+                if event == "monitor_touch" then
+                    -- Close boot server tab and return to GUI
+                    if bootServerPid then
+                        shell.switchTab(bootServerPid)
+                        -- Note: We can't force close the tab, but user can manually close it
+                    end
+                    redraw()
+                    lastStatusMsg = "RETURNED FROM BOOT SERVER CONSOLE"
+                    updateStatusLine()
+                    break
+                end
+            end
+        else
+            lastStatusMsg = "BOOT SERVER NOT FOUND - REDEPLOY ONBOARD-COMMAND ROLE"
+            updateStatusLine()
+        end
     
     else
         -- Unknown button

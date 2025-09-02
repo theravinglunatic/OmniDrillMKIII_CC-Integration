@@ -5,11 +5,18 @@
 -- ========== Configuration ==========
 local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
-local DEBUG = true
+local DEBUG = true  -- Set to false in production for maximum startup speed
 
 -- Role storage
 local ROLE_FILE = ".odmk3_role"
 local SCRIPT_FILE = ".odmk3_script"
+
+-- ========== Utilities ==========
+local function log(message)
+    if DEBUG then
+        print("[CLIENT] " .. tostring(message))
+    end
+end
 
 -- Available roles (friendly names mapped to script files)
 local AVAILABLE_ROLES = {
@@ -55,16 +62,88 @@ local ROLE_DESCRIPTIONS = {
     ["monitor"] = "Status display with metrics"
 }
 
+-- ========== Boot Server Deployment ==========
+local function deployBootServer()
+    print("Downloading and deploying Boot Server...")
+    
+    -- GitHub configuration for boot server download
+    local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
+    local GITHUB_BRANCH = "main"
+    local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/"
+    local BOOT_SERVER_SCRIPT = "ODMK3-BootServer.lua"
+    local ONBOARD_COMMAND_SCRIPT = "ODMK3-OnboardCommand.lua"
+    
+    local success, err = pcall(function()
+        -- Download Boot Server
+        local url = GITHUB_BASE_URL .. BOOT_SERVER_SCRIPT
+        log("Downloading Boot Server from: " .. url)
+        
+        local response = http.get(url)
+        if not response then
+            error("Failed to download " .. BOOT_SERVER_SCRIPT .. " from GitHub")
+        end
+        
+        local content = response.readAll()
+        response.close()
+        
+        if not content or content == "" then
+            error("Downloaded Boot Server script is empty")
+        end
+        
+        -- Save the boot server script
+        local file = fs.open(BOOT_SERVER_SCRIPT, "w")
+        if not file then
+            error("Could not create boot server file")
+        end
+        
+        file.write(content)
+        file.close()
+        
+        log("Successfully deployed Boot Server (" .. #content .. " bytes)")
+        
+        -- Download Onboard Command Script
+        local onboardUrl = GITHUB_BASE_URL .. ONBOARD_COMMAND_SCRIPT
+        log("Downloading Onboard Command from: " .. onboardUrl)
+        
+        local onboardResponse = http.get(onboardUrl)
+        if not onboardResponse then
+            error("Failed to download " .. ONBOARD_COMMAND_SCRIPT .. " from GitHub")
+        end
+        
+        local onboardContent = onboardResponse.readAll()
+        onboardResponse.close()
+        
+        if not onboardContent or onboardContent == "" then
+            error("Downloaded Onboard Command script is empty")
+        end
+        
+        -- Save the onboard command script
+        local onboardFile = fs.open(ONBOARD_COMMAND_SCRIPT, "w")
+        if not onboardFile then
+            error("Could not create onboard command file")
+        end
+        
+        onboardFile.write(onboardContent)
+        onboardFile.close()
+        
+        log("Successfully deployed Onboard Command (" .. #onboardContent .. " bytes)")
+        
+        print("Boot Server and Onboard Command deployed successfully!")
+        print("Boot Server: " .. BOOT_SERVER_SCRIPT)
+        print("Onboard Command: " .. ONBOARD_COMMAND_SCRIPT)
+        print("Access boot server with 'boot' command after onboard command starts.")
+    end)
+    
+    if not success then
+        print("ERROR deploying scripts: " .. err)
+        print("You may need to download them manually or check network connection.")
+    end
+end
+
 -- ========== State Management ==========
 local currentRole = nil
 local currentScript = nil
 local modem = nil
-
-local function log(message)
-    if DEBUG then
-        print("[CLIENT] " .. tostring(message))
-    end
-end
 
 local function loadRole()
     if fs.exists(ROLE_FILE) then
@@ -106,6 +185,13 @@ local function saveRole(role)
         
         currentRole = role
         currentScript = script
+        
+        -- Special handling for onboard-command: also deploy boot server
+        if role == "onboard-command" then
+            print("Onboard Command role selected - also deploying Boot Server...")
+            deployBootServer()
+        end
+        
         return true
     end
     return false
@@ -113,14 +199,6 @@ end
 
 -- ========== Role Selection Interface ==========
 local function showRoleMenu()
-    term.clear()
-    term.setCursorPos(1, 1)
-    print("ODMK3 Client Role Selection")
-    print("Computer ID: " .. os.getComputerID())
-    print("Label: " .. (os.getComputerLabel() or "Unlabeled"))
-    print("=" .. string.rep("=", 40))
-    print()
-    
     -- Convert roles to sorted list for consistent display
     local roleList = {}
     for role in pairs(AVAILABLE_ROLES) do
@@ -128,27 +206,78 @@ local function showRoleMenu()
     end
     table.sort(roleList)
     
-    print("Available roles:")
-    for i, role in ipairs(roleList) do
-        print(string.format("%2d. %-20s - %s", i, role, ROLE_DESCRIPTIONS[role] or ""))
-    end
+    -- Calculate pagination
+    local w, h = term.getSize()
+    local headerLines = 6  -- Header + separator + blank line
+    local footerLines = 4  -- Navigation + blank + prompt + blank
+    local maxRolesPerPage = h - headerLines - footerLines
     
-    print()
-    print("0. Refresh (rescan for roles)")
-    print()
-    write("Select role (number): ")
+    local totalPages = math.ceil(#roleList / maxRolesPerPage)
+    local currentPage = 1
     
-    local input = read()
-    local choice = tonumber(input)
-    
-    if choice == 0 then
-        return nil -- Refresh
-    elseif choice and choice >= 1 and choice <= #roleList then
-        return roleList[choice]
-    else
-        print("Invalid selection. Please try again.")
-        sleep(2)
-        return nil
+    while true do
+        term.clear()
+        term.setCursorPos(1, 1)
+        print("ODMK3 Client Role Selection")
+        print("Computer ID: " .. os.getComputerID())
+        print("Label: " .. (os.getComputerLabel() or "Unlabeled"))
+        print("=" .. string.rep("=", 40))
+        print()
+        
+        if totalPages > 1 then
+            print("Available roles (Page " .. currentPage .. "/" .. totalPages .. "):")
+        else
+            print("Available roles:")
+        end
+        
+        -- Calculate range for current page
+        local startIdx = (currentPage - 1) * maxRolesPerPage + 1
+        local endIdx = math.min(startIdx + maxRolesPerPage - 1, #roleList)
+        
+        -- Display roles for current page
+        for i = startIdx, endIdx do
+            local role = roleList[i]
+            print(string.format("%2d. %s", i, role))
+        end
+        
+        print()
+        
+        -- Navigation options
+        local navOptions = {}
+        if totalPages > 1 then
+            if currentPage > 1 then
+                table.insert(navOptions, "p. Previous page")
+            end
+            if currentPage < totalPages then
+                table.insert(navOptions, "n. Next page")
+            end
+        end
+        table.insert(navOptions, "0. Refresh (rescan for roles)")
+        
+        for _, option in ipairs(navOptions) do
+            print(option)
+        end
+        
+        print()
+        write("Select role (number) or navigation: ")
+        
+        local input = read()
+        
+        if input:lower() == "n" and currentPage < totalPages then
+            currentPage = currentPage + 1
+        elseif input:lower() == "p" and currentPage > 1 then
+            currentPage = currentPage - 1
+        else
+            local choice = tonumber(input)
+            if choice == 0 then
+                return nil -- Refresh
+            elseif choice and choice >= 1 and choice <= #roleList then
+                return roleList[choice]
+            else
+                print("Invalid selection. Please try again.")
+                sleep(2)
+            end
+        end
     end
 end
 
@@ -287,16 +416,57 @@ local function runScript()
     end
     
     print("Starting role script: " .. currentScript)
-    sleep(1)
+    -- Removed startup delay for faster launch
     
-    local success, error = pcall(function()
-        shell.run(currentScript)
-    end)
-    
-    if not success then
-        print("Error running script: " .. error)
-        print("Script will restart in 5 seconds...")
-        sleep(5)
+    -- Special handling for onboard-command: run in parallel with boot server access
+    if currentRole == "onboard-command" then
+        print("Onboard Command mode: Boot Server also available")
+        print("Type 'boot' to access Boot Server console")
+        
+        parallel.waitForAny(
+            function()
+                -- Run the onboard command script
+                local success, error = pcall(function()
+                    shell.run(currentScript)
+                end)
+                
+                if not success then
+                    print("Error running onboard script: " .. error)
+                    print("Script will restart in 5 seconds...")
+                    sleep(5)
+                end
+            end,
+            function()
+                -- Handle boot server console access
+                while true do
+                    local event, param1 = os.pullEvent()
+                    if event == "char" and param1 == "b" then
+                        -- Check if full "boot" command
+                        local input = "b" .. read()
+                        if input == "boot" then
+                            if fs.exists("ODMK3-BootServer.lua") then
+                                print("Starting Boot Server console...")
+                                shell.run("ODMK3-BootServer.lua")
+                                print("Boot Server console closed. Returning to onboard command.")
+                            else
+                                print("Boot Server not found. Try redeploying the onboard-command role.")
+                            end
+                        end
+                    end
+                end
+            end
+        )
+    else
+        -- Standard script execution for other roles
+        local success, error = pcall(function()
+            shell.run(currentScript)
+        end)
+        
+        if not success then
+            print("Error running script: " .. error)
+            print("Script will restart in 5 seconds...")
+            sleep(5)
+        end
     end
 end
 
@@ -329,60 +499,62 @@ local function handleReset()
 end
 
 -- ========== Main Function ==========
-local function main()
-    -- Handle reset command
+local function main(...)
+    -- Fast path: process arguments first (e.g., reset)
     local args = {...}
     if args[1] == "reset" then
         handleReset()
         return
     end
-    
-    -- Initialize network
-    local hasNetwork = initNetwork()
-    
-    -- Load existing role or prompt for selection
+
+    -- Load existing role immediately (before network) to minimize time-to-script
     currentRole = loadRole()
     if currentRole then
         currentScript = AVAILABLE_ROLES[currentRole]
-        print("Computer configured as: " .. currentRole)
-        if currentScript then
-            print("Associated script: " .. currentScript)
-        end
-    else
+    end
+
+    -- Initialize network (non-blocking & fast)
+    local hasNetwork = initNetwork()
+
+    -- If no saved role, enter selection (one-time interactive path)
+    if not currentRole then
         print("No role configured. Please select a role for this computer.")
         print()
         currentRole = selectRole()
         currentScript = AVAILABLE_ROLES[currentRole]
+    else
+        -- Minimal output for fast boot; only show when DEBUG enabled
+        if DEBUG then
+            print("Configured role: " .. currentRole .. (currentScript and (" (" .. currentScript .. ")") or ""))
+        end
     end
-    
-    -- Start network listener if available
+
+    -- Start listeners / script immediately
     if hasNetwork then
-        log("Starting network listener...")
+        if DEBUG then log("Starting network listener...") end
         parallel.waitForAny(
             networkListener,
             function()
                 while true do
                     runScript()
-                    sleep(1) -- Brief pause before restart
+                    sleep(0) -- yield without artificial delay
                 end
             end
         )
     else
-        -- No network - just run the script
         while true do
             runScript()
-            sleep(1)
+            sleep(0)
         end
     end
 end
 
 -- ========== Startup ==========
-print("ODMK3 Client Starting...")
-print("Computer ID: " .. os.getComputerID())
-print("Label: " .. (os.getComputerLabel() or "Unlabeled"))
-print()
+if DEBUG then
+    print("ODMK3 Client Starting...")
+    print("Computer ID: " .. os.getComputerID())
+    print("Label: " .. (os.getComputerLabel() or "Unlabeled"))
+    print()
+end
 
--- Add a small delay to allow user to see startup info
-sleep(1)
-
-main()
+main(...)
