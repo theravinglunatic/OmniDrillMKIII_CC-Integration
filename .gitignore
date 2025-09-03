@@ -1,0 +1,18 @@
+# Experimental files
+startup-experimental.lua
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.backup
+*.bak
+
+# ComputerCraft state files
+.odmk3_role
+.odmk3_script
+
+# Metrics and log files
+metrics
+*.log
