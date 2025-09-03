@@ -12,12 +12,19 @@ local ROTATE_PERIPH  = nil  -- set explicit peripheral name with rotate() if des
 local QUERY_INTERVAL = 5
 
 -- Debug options
+local DEBUG = false                      -- Enable debug messages
 local DEBUG_ASSUME_ORIENTATION = false  -- If true, assumes Forward orientation when VertReader not found
 local DEBUG_ASSUMED_ORIENTATION = "F"   -- The orientation to assume when DEBUG_ASSUME_ORIENTATION is true
 
 -- Map orientation - F (forward), U (up), D (down)
 local ORDER = {"F","U","D"} -- Forward, Up, Down
 local INDEX = { F=1, U=2, D=3 }
+
+local function debugPrint(msg)
+    if DEBUG then
+        print("[DEBUG] " .. msg)
+    end
+end
 
 local function openWireless()
 for _, side in ipairs(rs.getSides()) do
@@ -271,11 +278,10 @@ if SECRET ~= "" and msg.secret ~= SECRET then
 elseif msg.cmd == "setFacing" and msg.target then
 -- Handle set facing requests - only process F/U/D (vertical directions)
 if msg.target ~= "F" and msg.target ~= "U" and msg.target ~= "D" then
-print("Ignoring non-vertical direction: " .. msg.target)
-sendAck(sender, false, nil, nil, nil, "Not a vertical direction", msg.target)
-return
-end
-
+debugPrint("Ignoring non-vertical direction: " .. msg.target)
+-- Don't send error ack, just ignore silently
+-- Cardinal directions should be handled by CardinalRotator
+else
 print("Received setFacing command to " .. msg.target)
 if not lastOrientation or not orientationConfirmed then
 -- Can't rotate if we don't know current orientation
@@ -300,6 +306,7 @@ end
 print("Sending ack: " .. (ok and "success" or "failure"))
 sendAck(sender, ok, before, after, action, ok and nil or action, msg.target)
 if ok then broadcastOrientation(lastOrientation) end
+end
 end
 elseif msg.cmd == "queryOrientation" then
 -- Only respond if we know our orientation
