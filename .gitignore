@@ -1,7 +1,3 @@
-# Experimental files
-startup-experimental.lua
-startup.lua
-
 # Temporary files
 *.tmp
 *.temp
