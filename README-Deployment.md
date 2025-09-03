@@ -1,43 +1,28 @@
 # ODMK3 Deployment System
 
-This deployment system allows you to manage and deploy scripts to all computers in your Omni-Drill MKIII system from a central boot server.
+This deployment system allows you to manage and deploy scripts to all computers in the Omni-Drill MKIII system from the central boot server.
 
-## Quick Start
+### 1. Set Up the Boot Server/Onboard Command Center GUI
 
-### 1. Set Up the Boot Server
+1. Place an **Advanced Computer** with a **wireless modem** as your Boot Server/Onboard Command Center GUI
+2. Copy and run in terminal: `pastebin get https://pastebin.com/Ch5UtArG startup.lua`
+3. Reboot `reboot` or CTRL+R
+4. Select `onboard-command` as the role
 
-1. Place an **Advanced Computer** with a **wireless modem** as your boot server
-2. Copy `ODMK3-BootServer.lua` to the boot server
-3. Run: `ODMK3-BootServer.lua`
+### 2. Configure Client Roles
 
-### 2. Initial Client Setup (Two Options)
+1. On each client computer, copy and run in terminal `pastebin get https://pastebin.com/Ch5UtArG startup.lua`
+2. Reboot `reboot` or CTRL+R 
+3. Each computer will show a role selection menu
+4. Choose the appropriate role for each computer based on its function
+5. The role is saved permanently (until reset)
 
-**Option A: Quick Setup (Recommended)**
-1. Copy `ODMK3-QuickSetup.lua` to the boot server
-2. Run: `ODMK3-QuickSetup.lua`
-3. This will broadcast `startup.lua` to all computers in range
-4. Restart all client computers
-
-**Option B: Manual Setup**
-1. On each client computer, copy `ODMK3-DeploymentClient.lua`
-2. Run: `ODMK3-DeploymentClient.lua` 
-3. From boot server, use: `push(all, "startup.lua")`
-4. Restart client computers when prompted
-
-### 3. Configure Client Roles
-
-After clients restart with the new `startup.lua`:
-1. Each computer will show a role selection menu
-2. Choose the appropriate role for each computer based on its function
-3. The role is saved permanently (until reset)
-
-### 4. Deploy Scripts
+### 3. Deploy Scripts
 
 From the boot server:
 - `download` - Download all scripts from GitHub
 - `push(all)` - Deploy all scripts to all computers  
-- `push(all, "ODMK3-DriveController.lua")` - Deploy specific script to all
-- `push(15, "ODMK3-DriveController.lua")` - Deploy to specific computer
+- `push(15)` - Deploy to specific computer
 
 ## Boot Server Commands
 
@@ -47,8 +32,7 @@ From the boot server:
 | `list` | Show all available client computers |
 | `roles` | Show available roles and their scripts |
 | `push(all)` | Deploy all scripts to all clients |
-| `push(all, "script.lua")` | Deploy specific script to all clients |
-| `push(clientId, "script.lua")` | Deploy script to specific client |
+| `push(clientId)` | Deploy script to specific client |
 | `cache` | Show cached scripts |
 | `help` | Show command help |
 | `exit` | Exit the boot server |
@@ -71,20 +55,12 @@ From the boot server:
 | `drive-shift` | ODMK3-DriveShift.lua | Orientation-based drive control |
 | `gantry-action` | ODMK3-GantryAction.lua | Sequenced gearshift controller |
 | `gantry-shift` | ODMK3-GantryShift.lua | Gantry direction controller |
-| `onboard-command` | ODMK3-OnboardCommand.lua | 3x3 monitor touchscreen GUI |
+| `onboard-command` | ODMK3-OnboardCommand.lua, ODMK3-BootServer.lua | 3x3 monitor touchscreen GUI, acess Boot Server via Computer Terminal |
 | `vert-reader` | ODMK3-VertReader.lua | Vertical orientation reader (F/U/D) |
 | `vert-rotator` | ODMK3-VertRotator.lua | Vertical rotation controller |
 | `monitor` | OmniDrill-Monitor.lua | Status display with metrics |
 
 ## Client Management
-
-### Resetting a Client Role
-On any client computer, run: `startup reset`
-This will:
-- Clear the assigned role
-- Delete downloaded scripts
-- Restart the computer
-- Show the role selection menu again
 
 ### Manual Script Updates
 When you update scripts on GitHub:
@@ -107,7 +83,7 @@ When you update scripts on GitHub:
 
 ### Client Issues  
 - If a client doesn't respond, check its wireless modem
-- Ensure the client is running `startup.lua` or `ODMK3-DeploymentClient.lua`
+- Ensure the client is running `startup.lua`
 - Check that both server and client are in wireless range
 
 ### Deployment Failures

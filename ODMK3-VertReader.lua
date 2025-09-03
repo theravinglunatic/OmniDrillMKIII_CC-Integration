@@ -3,10 +3,19 @@
 -- (front=Forward, down=Up, up=Down)
 -- Periodically broadcast orientation + respond to direct orientation queries.
 
+-- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local NAME     = "odmk3-vert-reader"
 local SECRET   = ""  -- optional shared secret must match controller/rotater if set
+local DEBUG = false  -- Set to true to enable debug messages
 local ROTATER_NAME = "odmk3-vert-rotater" -- notify rotater too
+
+-- ========== Utilities ==========
+local function debugPrint(message)
+    if DEBUG then
+        print("[DEBUG] " .. message)
+    end
+end
 
 local sides = rs.getSides()
 
@@ -40,10 +49,10 @@ local function main()
 		print("No wireless modem found; aborting.")
 		return
 	end
-	print("Vertical Reader online.")
+	print("Vertical Reader initialized")
 	local lastOrientation = detectOrientation()
 	if lastOrientation then 
-		print("Initial orientation: " .. lastOrientation)
+		debugPrint("Initial orientation: " .. lastOrientation)
 		broadcastOrientation(lastOrientation)
 	else
 		print("Warning: Orientation unknown!")
@@ -90,5 +99,6 @@ local function main()
 	end
 end
 
+-- ========== Startup ==========
 main()
 

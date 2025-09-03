@@ -2,10 +2,19 @@
 -- Detect machine facing from redstone inputs (front=North, left=East, back=South, right=West)
 -- Periodically broadcast facing + respond to direct facing queries.
 
+-- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local NAME     = "odmk3-cardinal-reader"
 local SECRET   = ""  -- optional shared secret must match controller/rotater if set
+local DEBUG = false  -- Set to true to enable debug messages
 local ROTATER_NAME = "odmk3-cardinal-rotater" -- notify rotater too
+
+-- ========== Utilities ==========
+local function debugPrint(message)
+    if DEBUG then
+        print("[DEBUG] " .. message)
+    end
+end
 
 local sides = rs.getSides()
 
@@ -36,10 +45,10 @@ local function main()
 		print("No wireless modem found; aborting.")
 		return
 	end
-	print("Cardinal Reader online.")
+	print("Cardinal Reader initialized")
 	local lastFacing = detectFacing()
 	if lastFacing then 
-		print("Initial facing: " .. lastFacing)
+		debugPrint("Initial facing: " .. lastFacing)
 		broadcastFacing(lastFacing)
 	end
 	
@@ -84,4 +93,5 @@ local function main()
 	end
 end
 
+-- ========== Startup ==========
 main()

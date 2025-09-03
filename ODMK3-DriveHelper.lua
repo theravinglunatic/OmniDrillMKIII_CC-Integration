@@ -1,17 +1,17 @@
 -- ODMK3-DriveHelper.lua
 -- Monitors redstone signal on back face and outputs a delayed pulse on front face
 
--- Configuration
-local DEBUG = true                    -- Enable debug output
+-- ========== Configuration ==========
+local DEBUG = false                    -- Enable debug output
 local INPUT_SIDE = "back"            -- Side to monitor for input signal
 local OUTPUT_SIDE = "front"          -- Side to output the pulse
 local DELAY_SECONDS = 1.2            -- Delay between input and output pulse
 local PULSE_LENGTH = 0.1             -- How long the output pulse should last
 
--- State tracking
+-- ========== State Tracking ==========
 local lastInputState = false
 
--- Utility for debug messages
+-- ========== Utilities ==========
 local function debugPrint(message)
     if DEBUG then
         print("[DEBUG] " .. message)
@@ -27,7 +27,7 @@ local function pulse(side, duration)
     debugPrint("Set redstone output on " .. side .. " to OFF")
 end
 
--- Main function
+-- ========== Main Function ==========
 local function main()
     print("ODMK3-DriveHelper initialized")
     debugPrint("Monitoring redstone signal on " .. INPUT_SIDE)
@@ -65,4 +65,5 @@ local function main()
     end
 end
 
+-- ========== Startup ==========
 main()

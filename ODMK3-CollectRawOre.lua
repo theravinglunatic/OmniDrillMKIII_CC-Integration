@@ -2,14 +2,22 @@
 -- Omni-Drill MKIII: Raw Ore Collection Controller
 -- Controls redstone output to Create Item Funnel for raw ore collection
 
--- ========== config ==========
+-- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local MY_NAME = "odmk3-collect-raw-ore"
 local SECRET = ""  -- optional shared secret
-local NET_OK = false
+local DEBUG = false  -- Set to true to enable debug messages
 
--- Collection state
+-- ========== State Tracking ==========
+local NET_OK = false
 local collectionEnabled = nil  -- Will be set after querying GUI at startup
+
+-- ========== Utilities ==========
+local function debugPrint(message)
+    if DEBUG then
+        print("[DEBUG] " .. message)
+    end
+end
 
 -- ========== networking ==========
 local function openAllModems()
@@ -146,9 +154,9 @@ local function main()
         updateRedstoneOutput()
     end
     
-    print("Controller ready")
+    print("ODMK3-CollectRawOre initialized")
     print("Collection state: " .. (collectionEnabled and "ENABLED" or "DISABLED"))
-    print("Press Ctrl+T to exit")
+    debugPrint("Controller ready for commands")
     
     while true do
         local event, param1, param2, param3 = os.pullEvent()
