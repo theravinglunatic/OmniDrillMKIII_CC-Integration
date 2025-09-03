@@ -10,7 +10,7 @@ local DEBUG = false
 
 -- GitHub Configuration
 local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
-local GITHUB_BRANCH = "main"
+local GITHUB_BRANCH = "experimental"
 local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/"
 
 -- Available scripts and their descriptions
@@ -29,7 +29,9 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-DriveShift.lua"] = "Orientation-based drive control",
     ["ODMK3-GantryAction.lua"] = "Sequenced gearshift controller",
     ["ODMK3-GantryShift.lua"] = "Gantry direction controller",
+    ["ODMK3-GeoScannerRelay.lua"] = "Geo scanner relay computer",
     ["ODMK3-OnboardCommand.lua"] = "3x3 monitor touchscreen GUI",
+    ["ODMK3-ScannerDisplay.lua"] = "Geo scanner display monitor",
     ["ODMK3-VertReader.lua"] = "Vertical orientation reader (F/U/D)",
     ["ODMK3-VertRotator.lua"] = "Vertical rotation controller",
     ["OmniDrill-Monitor.lua"] = "Status display with metrics"
@@ -51,7 +53,9 @@ local ROLE_MAPPINGS = {
     ["ODMK3-DriveShift.lua"] = "drive-shift",
     ["ODMK3-GantryAction.lua"] = "gantry-action",
     ["ODMK3-GantryShift.lua"] = "gantry-shift",
+    ["ODMK3-GeoScannerRelay.lua"] = "geo-scanner-relay",
     ["ODMK3-OnboardCommand.lua"] = "onboard-command",
+    ["ODMK3-ScannerDisplay.lua"] = "scanner-display",
     ["ODMK3-VertReader.lua"] = "vert-reader",
     ["ODMK3-VertRotator.lua"] = "vert-rotator",
     ["OmniDrill-Monitor.lua"] = "monitor"

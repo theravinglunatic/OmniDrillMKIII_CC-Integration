@@ -199,7 +199,7 @@ end
 local function uvToPixel(du, dv, gx1, gy1, gx2, gy2, radius)
     local gw, gh = gx2 - gx1 + 1, gy2 - gy1 + 1
     local nx = (du / radius + 1) / 2    -- 0..1
-    local ny = (dv / radius + 1) / 2
+    local ny = (-dv / radius + 1) / 2   -- Flip Y coordinate for proper orientation
     local px = gx1 + math.floor(nx * (gw - 1) + 0.5)
     local py = gy1 + math.floor(ny * (gh - 1) + 0.5)
     return px, py
@@ -231,7 +231,7 @@ local function renderScanData()
             local nx = (px - gx1) / math.max(gw - 1, 1) * 2 - 1
             local ny = (py - gy1) / math.max(gh - 1, 1) * 2 - 1
             local du = math.floor(nx * currentRadius + 0.5)
-            local dv = math.floor(ny * currentRadius + 0.5)
+            local dv = math.floor(-ny * currentRadius + 0.5)  -- Flip Y coordinate for proper orientation
             local key = du .. "," .. dv
             local c = pts[key]
             if c then
