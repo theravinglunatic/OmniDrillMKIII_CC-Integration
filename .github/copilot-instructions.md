@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-This is a **ComputerCraft Lua distributed control system** for a Minecraft Create mod drilling contraption. The system consists of **~20 interconnected computers** that communicate via rednet protocol `"Omni-DrillMKIII"` to coordinate movement, drilling, and collection operations.
+This is a **ComputerCraft Lua distributed control system** for a Minecraft Create mod drilling contraption. The system consists of **~20 interconnected computers** that communicate via rednet protocol `"Omni-DrillMKIII"` to coordinate movement, drilling, collection, and scanning operations.
 
 ### Core Communication Pattern
 
@@ -16,39 +16,47 @@ rednet.broadcast({ name = "target-component", cmd = "command", secret = "" }, PR
 ### Component Categories
 
 1. **User Interfaces** (computers 0, 25, 23):
-   - `ODMK3-CommandCenter.lua` - Handheld pocket computer GUI
-   - `ODMK3-OnboardCommand.lua` - 3x3 monitor touchscreen GUI
-   - `OmniDrill-Monitor.lua` - Status display with persistent metrics
+   - `ODMK3-CommandCenter.lua` - Handheld pocket computer GUI with state persistence
+   - `ODMK3-OnboardCommand.lua` - 3x3 monitor touchscreen GUI with boot server access
+   - `OmniDrill-Monitor.lua` - Status display with persistent metrics and vault monitoring
 
 2. **Movement Controllers** (computers 15, 17, 14, 13):
-   - `ODMK3-DriveController.lua` - Main movement via redstone pulses
-   - `ODMK3-DriveShift.lua` - Orientation-based drive direction control
+   - `ODMK3-DriveController.lua` - Main movement via redstone pulses with vault safety
+   - `ODMK3-DriveShift.lua` - Orientation-based drive direction control  
    - `ODMK3-GantryShift.lua` - Gantry direction based on orientation
-   - `ODMK3-GantryAction.lua` - Sequenced Gearshift peripheral control
+   - `ODMK3-GantryAction.lua` - Sequenced Gearshift peripheral control with redstone triggers
 
 3. **Orientation System** (computers 9, 10, 11, 12):
-   - `ODMK3-CardinalReader.lua` - Reads cardinal direction (N/E/S/W)
-   - `ODMK3-VertReader.lua` - Reads vertical orientation (F/U/D)
-   - `ODMK3-CardinalRotator.lua` - Controls cardinal rotation
-   - `ODMK3-VertRotator.lua` - Controls vertical rotation
+   - `ODMK3-CardinalReader.lua` - Reads cardinal direction (N/E/S/W) from redstone
+   - `ODMK3-VertReader.lua` - Reads vertical orientation (F/U/D) from redstone
+   - `ODMK3-CardinalRotator.lua` - Controls cardinal rotation via Create peripherals
+   - `ODMK3-VertRotator.lua` - Controls vertical rotation via Create peripherals
 
 4. **Collection Controllers** (computers 26, 27, 28):
-   - `ODMK3-CollectNatBlocks.lua` - Natural blocks collection via redstone
-   - `ODMK3-CollectBuildBlocks.lua` - Build blocks collection via redstone
-   - `ODMK3-CollectRawOre.lua` - Raw ore collection via redstone
+   - `ODMK3-CollectNatBlocks.lua` - Natural blocks collection via redstone to Create funnels
+   - `ODMK3-CollectBuildBlocks.lua` - Build blocks collection via redstone to Create funnels
+   - `ODMK3-CollectRawOre.lua` - Raw ore collection via redstone to Create funnels
 
 5. **Automation & Utilities** (computers 22, 20, 21, 25):
-   - `ODMK3-AutoDrive.lua` - Automated movement timing
-   - `ODMK3-AuxVaultThreshold.lua` - Vault capacity monitoring
+   - `ODMK3-AutoDrive.lua` - Automated movement timing with safety checks
+   - `ODMK3-AuxVaultThreshold.lua` - Vault capacity monitoring via redstone sensors
    - `ODMK3-DrillControlON.lua` - Drill activation via redstone pulse
-   - `ODMK3-BootServer.lua` - Network boot coordination
+   - `ODMK3-BootServer.lua` - Network deployment system with role-based script distribution
+
+6. **Scanning & Display**:
+   - `ODMK3-ScannerDisplay.lua` - Geological scanner visualization with direction-aware cycling
 
 ## Critical Design Patterns
 
-### State Synchronization
-GUIs maintain authoritative state with file persistence:
+### State Synchronization with Startup Coordination
+GUIs maintain authoritative state with file persistence, but controllers implement startup delays to prevent race conditions:
+
 ```lua
--- State persistence pattern
+-- Controller startup pattern with 1-second delay
+sleep(1.0)  -- Wait before querying GUI state
+rednet.broadcast({ name = "odmk3-command-center", cmd = "queryState", type = "natBlocks" }, PROTOCOL)
+
+-- GUI state persistence pattern  
 local function saveState()
     local state = { collectNatBlocksEnabled = enabled, ... }
     local file = fs.open(STATE_FILE, "w")
@@ -57,7 +65,7 @@ local function saveState()
 end
 ```
 
-Collection controllers query GUIs at startup to avoid state reset after machine movement.
+Controllers query GUIs at startup and implement periodic status broadcasts (every 10s) to maintain synchronization after machine movements.
 
 ### Redstone Integration with Create Mod
 ```lua
@@ -68,49 +76,87 @@ redstone.setOutput("bottom", not collectionEnabled)
 redstone.setOutput("back", true)
 sleep(0.3)
 redstone.setOutput("back", false)
+
+-- Vault safety: block movement when vault full
+if vaultFull then
+    sendMoveAck(false, "vault full - movement blocked")
+    return
+end
 ```
 
 ### Orientation-Based Control
-Controllers monitor both cardinal (N/E/S/W) and vertical (F/U/D) orientation to determine appropriate redstone outputs for mechanical components.
+Controllers monitor both cardinal (N/E/S/W) and vertical (F/U/D) orientation to determine appropriate redstone outputs for mechanical components:
 
-### Message Broadcasting vs Targeted
-- **Broadcast**: Status updates, state queries (`rednet.broadcast`)
-- **Targeted**: Specific commands use `name` field matching in message handlers
+```lua
+-- Drive shift control based on orientation
+if currentCardinal == "W" and currentVertical == "U" then
+    shouldEmitSignal = true  -- West-Up orientation detected
+end
+```
+
+### Direction-Aware Scanner Display
+Scanner automatically switches view modes and slice ranges based on machine orientation:
+
+```lua
+-- Direction-based display settings
+local DIRECTION_SETTINGS = {
+    N = {view = "front", minOffset = -12, maxOffset = -2},  -- North: descending -2 to -12
+    E = {view = "side",  minOffset = 2,   maxOffset = 12},  -- East: ascending 2 to 12
+    D = {view = "top",   minOffset = -12, maxOffset = -2},  -- Down: descending
+}
+```
 
 ## Development Workflows
 
+### Deployment System
+Use the centralized boot server for script deployment:
+1. Configure boot server: `ODMK3-BootServer.lua` on computer with advanced monitor
+2. Set client roles: each computer runs `startup.lua` and selects role
+3. Deploy updates: `download` from GitHub, then `push(all)` to deploy
+
 ### Testing Components
-1. Each computer folder contains startup scripts
-2. Use `DEBUG = true` flags for verbose logging
-3. Test network connectivity with `SECRET = ""` (disable auth)
+1. Use `DEBUG = true` flags for verbose logging
+2. Test network connectivity with `SECRET = ""` (disable auth)
+3. Monitor startup synchronization logs for race conditions
+4. Verify state persistence after machine movements
 
-### Adding New Controllers
-1. Follow naming pattern: `ODMK3-ComponentName.lua`
-2. Include standard networking setup with protocol/secret
-3. Implement state persistence if maintaining toggleable state
-4. Add message handlers for targeted commands
-
-### State Management
-- GUIs persist state to files (`command_state`, `onboard_state`)
-- Controllers query GUI state at startup via `queryState` messages
-- Always save state immediately after user actions
+### State Management Debugging
+- Check `command_state`/`onboard_state` files for GUI state
+- Monitor controller startup logs for state query responses
+- Verify periodic status broadcasts every 10 seconds
+- Test toggle commands work bidirectionally between GUIs and controllers
 
 ## Key Integration Points
 
 ### Create Mod Peripherals
-- **Sequenced Gearshift**: `peripheral.find("sequencedGearshift")`
-- **Target Block**: `peripheral.find("create_target")` for vault inventory
-- **Redstone**: Controls Create components via computer faces
+```lua
+-- Sequenced Gearshift for precise movements
+local gearshift = peripheral.find("sequencedGearshift")
+gearshift.move(DISTANCE, direction)  -- 1 = forward, -1 = backward
+
+-- Target Block for vault inventory monitoring
+local vault = peripheral.find("create_target")
+
+-- Redstone control for Create components
+redstone.setOutput("bottom", signal)  -- Controls Create item funnels
+```
 
 ### ComputerCraft Patterns
-- **Monitors**: 3x3 advanced monitors with touch events
-- **Pocket Computers**: Advanced (color) required for GUIs
-- **Modems**: Auto-detect wireless modems on any computer face
-- **Event Loops**: Handle `rednet_message`, `monitor_touch`, `timer` events
+- **Monitors**: 3x3 advanced monitors with `monitor_touch` events for GUIs
+- **Pocket Computers**: Advanced (color) required for command center GUI
+- **Modems**: Auto-detect wireless modems: `peripheral.getType(side) == "modem"`
+- **Event Loops**: Handle `rednet_message`, `monitor_touch`, `timer`, `redstone` events
 
-### Error Handling
-- Graceful degradation when network unavailable
-- Fallback to default states when GUI unreachable
-- Peripheral reconnection logic for Create mod components
+### Error Handling & Race Conditions
+- **Startup Coordination**: 1-second delays before state queries prevent race conditions
+- **Periodic Synchronization**: Status broadcasts every 10 seconds maintain state consistency  
+- **Graceful Degradation**: Default to enabled state when GUI unreachable
+- **Peripheral Reconnection**: Retry logic for Create mod component connections
 
-Always verify state synchronization after machine movements - this is the most common source of bugs.
+### Network Message Types
+- **Targeted Commands**: Use `name` field matching (`msg.name == MY_NAME`)
+- **Status Broadcasts**: Periodic state announcements (`type = "natBlocksStatus"`)
+- **State Queries**: Startup synchronization (`cmd = "queryState"`)
+- **Safety Signals**: Vault status, orientation updates for movement control
+
+Always verify state synchronization after machine movements - this is the most common source of bugs in distributed systems.
