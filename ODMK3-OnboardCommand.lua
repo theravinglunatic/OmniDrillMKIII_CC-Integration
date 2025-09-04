@@ -80,7 +80,7 @@ local function loadState()
     collectBuildBlocksEnabled = true
     collectRawOreEnabled = true
     autoDriveEnabled = false
-    print("[STATE] Using default state")
+    print("[STATE] Using default state - all collection ENABLED")
     return false
 end
 
@@ -815,7 +815,8 @@ local function main()
             secret = ""
         }, PROTOCOL)
         
-        -- Query collection controllers for current states
+        -- Query collection controllers for current states (with brief delay for startup)
+        sleep(1)  -- Give controllers time to initialize
         queryCollectionStates()
         rednet.broadcast({
             name = "odmk3-collect-nat-blocks",
