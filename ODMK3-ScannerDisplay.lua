@@ -1,26 +1,46 @@
 -- ODMK3-ScannerDisplay.lua
 -- Geo Scanner display for Omni-Drill MKIII cabin
 -- Receives scan data from relay and displays on monitor
+-- Manual control re-enabled for testing slice orientations
 -- Based on geo_sonar.lua visualization system
 
 -- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local NAME = "odmk3-scanner-display"
 local RELAY_NAME = "odmk3-geo-scanner-relay"
+local CARDINAL_READER_NAME = "odmk3-cardinal-reader"
+local VERT_READER_NAME = "odmk3-vert-reader"
 local SECRET = ""
 
 -- Display settings
 local DEFAULT_RADIUS = 12
-local DEFAULT_SLICE_THICK = 3
-local DEFAULT_SLICE_OFFSET = 0
-local DEFAULT_VIEW = "top"  -- "top" (XZ), "front" (XY), "side" (ZY)
+local DEFAULT_SLICE_THICK = 1
+local DEFAULT_SLICE_OFFSET = -2
+local DEFAULT_VIEW = "front"  -- "top" (XZ), "front" (XY), "side" (ZY)
 local LEGEND_ROWS = 3
+
+-- Auto-cycling settings
+local AUTO_CYCLE_ENABLED = true  -- Re-enabled for direction-aware cycling
+local AUTO_CYCLE_INTERVAL = 0.5  -- seconds between slice changes
 local AUTO_SCAN_INTERVAL = 30  -- seconds, 0 to disable
+
+-- Direction-based display settings
+local DIRECTION_SETTINGS = {
+    -- Negative range directions use -2 .. -12
+    N = {view = "front", minOffset = -12, maxOffset = -2},  -- North: FRONT (XY), -2 to -12
+    W = {view = "side",  minOffset = -12, maxOffset = -2},  -- West: SIDE (ZY), will descend -2 -> -12
+    F = {view = "front", minOffset = -12, maxOffset = -2},  -- Front (default)
+    D = {view = "top",   minOffset = -12, maxOffset = -2},  -- Down: TOP (XZ)
+    -- Positive range directions use 2 .. 12
+    E = {view = "side",  minOffset = 2,  maxOffset = 12},   -- East: SIDE (ZY)
+    S = {view = "front", minOffset = 2,  maxOffset = 12},   -- South: FRONT (XY)
+    U = {view = "top",   minOffset = 2,  maxOffset = 12},   -- Up: TOP (XZ)
+}
 
 -- Colors (matching geo_sonar.lua)
 local BG_COLOR = colors.black
 local FRAME_COLOR = colors.gray
-local POINT_COLOR = colors.lime
+local POINT_COLOR = colors.gray  -- changed from lime to gray for lower-value materials
 local ORE_COLOR = colors.orange
 local FLUID_COLOR = colors.lightBlue
 local WOOD_COLOR = colors.brown
@@ -44,6 +64,15 @@ local lastScanTime = 0
 local scanInProgress = false
 local lastError = nil
 local relayOnline = false
+
+-- Auto-cycling state
+local autoCycleEnabled = AUTO_CYCLE_ENABLED  -- Direction-aware cycling
+local currentCardinal = "N"  -- Current cardinal direction (N/E/S/W)
+local currentVertical = "F"  -- Current vertical direction (F/U/D)
+local currentDirection = "N" -- Active direction for display settings
+local cycleMinOffset = -12
+local cycleMaxOffset = -2
+local cycleDirection = -1  -- -1 for going down (negative), 1 for going up (positive)
 
 -- ========== Debug Utilities ==========
 local function debugPrint(msg)
@@ -254,8 +283,10 @@ local function renderScanData()
     fillRect(1, y, w, h, BG_COLOR)
     
     -- Status line 1: View and parameters
-    mwriteXY(1, y, string.format("%s  R:%d  Slice:%d  Off:%d", 
-        viewName, currentRadius, sliceThick, sliceOffset), STATUS_COLOR, BG_COLOR)
+    local cycleStatus = autoCycleEnabled and "AUTO" or "MANUAL"
+    local directionInfo = string.format("%s/%s", currentCardinal, currentVertical)
+    mwriteXY(1, y, string.format("%s  R:%d  Slice:%d  Off:%d  [%s] %s", 
+        viewName, currentRadius, sliceThick, sliceOffset, cycleStatus, directionInfo), STATUS_COLOR, BG_COLOR)
     
     -- Status line 2: Scan info
     local scanAge = os.epoch("utc") - lastScanTime
@@ -270,7 +301,7 @@ local function renderScanData()
     elseif scanInProgress then
         mwriteXY(1, y + 2, "Scanning...", colors.yellow, BG_COLOR)
     else
-        mwriteXY(1, y + 2, "R=Rescan  W/S=Offset  A/D=Thick  V=View  Q=Quit", colors.lightGray, BG_COLOR)
+        mwriteXY(1, y + 2, "R=Rescan  W/S=Offset  A/D=Thick  V=View  C=Cycle  Q=Quit", colors.lightGray, BG_COLOR)
     end
 end
 
@@ -282,7 +313,7 @@ local function renderNoData()
     
     -- Center message
     local msg1 = "Omni-Drill MKIII Geo Scanner"
-    local msg2 = relayOnline and "Press R to scan" or "Connecting to scanner relay..."
+    local msg2 = relayOnline and "Performing initial scan..." or "Connecting to scanner relay..."
     local msg3 = lastError and ("Error: " .. lastError) or ""
     
     mwriteXY(math.floor((w - #msg1) / 2) + 1, math.floor(h / 2) - 1, msg1, STATUS_COLOR, BG_COLOR)
@@ -292,7 +323,7 @@ local function renderNoData()
     end
     
     -- Status at bottom
-    mwriteXY(1, h, string.format("Relay: %s | R=Scan Q=Quit", 
+    mwriteXY(1, h, string.format("Relay: %s | R=Scan C=Cycle Q=Quit", 
         relayOnline and "Online" or "Offline"), colors.lightGray, BG_COLOR)
 end
 
@@ -328,6 +359,18 @@ local function requestRelayStatus()
     }, PROTOCOL)
 end
 
+local function requestOrientationData()
+    debugPrint("Requesting orientation data")
+    rednet.broadcast({
+        cmd = "queryFacing",
+        secret = SECRET
+    }, PROTOCOL)
+    rednet.broadcast({
+        cmd = "queryOrientation",
+        secret = SECRET
+    }, PROTOCOL)
+end
+
 local function handleScanResponse(msg)
     scanInProgress = false
     
@@ -351,12 +394,107 @@ local function handleStatusResponse(msg)
         lastError = "Scanner not available"
     else
         lastError = nil
+        -- If relay is online and we don't have data yet, request initial scan
+        if not currentData and not scanInProgress then
+            requestScan()
+        end
     end
     debugPrint("Relay status: " .. (relayOnline and "online" or "offline"))
     
     if not currentData then
         renderNoData()
     end
+end
+
+-- ========== Direction-Aware Display Functions ==========
+local function updateDisplaySettings()
+    -- Determine active direction (vertical takes precedence for U/D)
+    local newDirection = currentDirection
+    if currentVertical == "U" or currentVertical == "D" then
+        newDirection = currentVertical
+    else
+        newDirection = currentCardinal
+    end
+    
+    if newDirection ~= currentDirection then
+        currentDirection = newDirection
+        local settings = DIRECTION_SETTINGS[currentDirection]
+        if settings then
+            currentView = settings.view
+            cycleMinOffset = settings.minOffset
+            cycleMaxOffset = settings.maxOffset
+
+            -- Determine cycle direction and starting point.
+            -- West and Down need a descending cycle: -2 -> -12.
+            local actualMin = math.min(cycleMinOffset, cycleMaxOffset)
+            local actualMax = math.max(cycleMinOffset, cycleMaxOffset)
+
+            if currentDirection == "W" or currentDirection == "D" then
+                cycleDirection = -1            -- descending
+                sliceOffset = cycleMaxOffset   -- start at -2 then descend
+            else
+                cycleDirection = 1
+                sliceOffset = actualMin      -- default ascending behavior
+            end
+            
+            debugPrint(string.format("Direction changed to %s: view=%s, range=%d to %d, direction=%d", 
+                currentDirection, currentView, cycleMinOffset, cycleMaxOffset, cycleDirection))
+            
+            if currentData then
+                renderScanData()
+            end
+        end
+    end
+end
+
+local function handleOrientationResponse(msg)
+    local updated = false
+    
+    if msg.type == "facing" and msg.name == CARDINAL_READER_NAME and msg.facing then
+        if currentCardinal ~= msg.facing then
+            currentCardinal = msg.facing
+            updated = true
+            debugPrint("Cardinal direction updated: " .. currentCardinal)
+        end
+    elseif msg.type == "orientation" and msg.name == VERT_READER_NAME and msg.orientation then
+        if currentVertical ~= msg.orientation then
+            currentVertical = msg.orientation
+            updated = true
+            debugPrint("Vertical direction updated: " .. currentVertical)
+        end
+    end
+    
+    if updated then
+        updateDisplaySettings()
+    end
+end
+
+-- ========== Auto-Cycling Functions ==========
+local function cycleSlice()
+    if not autoCycleEnabled or not currentData then
+        return
+    end
+
+    if currentDirection == "W" or currentDirection == "D" then
+        -- Descend from -2 to -12
+        sliceOffset = sliceOffset + cycleDirection -- cycleDirection is -1 here
+        if sliceOffset < cycleMinOffset then
+            -- cycleMinOffset is -12, wrap to -2 (cycleMaxOffset)
+            sliceOffset = cycleMaxOffset
+        end
+    else
+        -- Default ascending behavior
+        sliceOffset = sliceOffset + cycleDirection
+        local actualMin = math.min(cycleMinOffset, cycleMaxOffset)
+        local actualMax = math.max(cycleMinOffset, cycleMaxOffset)
+        if sliceOffset > actualMax then
+            sliceOffset = actualMin
+        elseif sliceOffset < actualMin then
+            sliceOffset = actualMax
+        end
+    end
+
+    renderScanData()
 end
 
 -- ========== Input Handling ==========
@@ -366,6 +504,9 @@ local function handleKeypress(key)
         return false  -- Exit
     elseif key == keys.r then
         requestScan()
+    elseif key == keys.c then
+        autoCycleEnabled = not autoCycleEnabled
+        if currentData then renderScanData() end
     elseif key == keys.w then
         sliceOffset = sliceOffset + 1
         if currentData then renderScanData() end
@@ -406,21 +547,34 @@ local function main()
     -- Initialize monitor
     setupMonitor()
     
-    print("Scanner Display online")
+    print("Scanner Display online (Direction-aware mode)")
     print("Protocol: " .. PROTOCOL)
     print("Relay: " .. RELAY_NAME)
     
     -- Initial display
     renderNoData()
     
-    -- Request initial status
+    -- Request initial status and orientation
     requestRelayStatus()
+    requestOrientationData()
+    
+    -- Initialize display settings
+    updateDisplaySettings()
     
     -- Auto-scan timer
     local autoScanTimer = nil
     if AUTO_SCAN_INTERVAL > 0 then
         autoScanTimer = os.startTimer(AUTO_SCAN_INTERVAL)
     end
+    
+    -- Auto-cycle timer
+    local autoCycleTimer = nil
+    if AUTO_CYCLE_INTERVAL > 0 then
+        autoCycleTimer = os.startTimer(AUTO_CYCLE_INTERVAL)
+    end
+    
+    -- Orientation update timer (check every 5 seconds)
+    local orientationTimer = os.startTimer(5)
     
     -- Main event loop
     while true do
@@ -435,6 +589,8 @@ local function main()
                         handleScanResponse(message)
                     elseif message.type == "statusResponse" and message.name == RELAY_NAME then
                         handleStatusResponse(message)
+                    elseif message.type == "facing" or message.type == "orientation" then
+                        handleOrientationResponse(message)
                     end
                 end
             end
@@ -450,6 +606,18 @@ local function main()
                 requestScan()
             end
             autoScanTimer = os.startTimer(AUTO_SCAN_INTERVAL)
+            
+        elseif event == "timer" and p1 == autoCycleTimer then
+            -- Auto-cycle slices
+            if AUTO_CYCLE_INTERVAL > 0 then
+                cycleSlice()
+            end
+            autoCycleTimer = os.startTimer(AUTO_CYCLE_INTERVAL)
+            
+        elseif event == "timer" and p1 == orientationTimer then
+            -- Request orientation update
+            requestOrientationData()
+            orientationTimer = os.startTimer(5)
             
         elseif event == "monitor_resize" then
             if currentData then

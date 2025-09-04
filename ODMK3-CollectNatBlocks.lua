@@ -146,6 +146,15 @@ local function main()
             print("WARNING: No response from GUI - defaulting to ENABLED")
             collectionEnabled = true
             updateRedstoneOutput()
+            
+            -- Broadcast initial state to inform other systems
+            if NET_OK then
+                rednet.broadcast({
+                    type = "natBlocksStatus",
+                    enabled = collectionEnabled,
+                    secret = ""
+                }, PROTOCOL)
+            end
         end
     else
         print("WARNING: No modem found - running in standalone mode")
