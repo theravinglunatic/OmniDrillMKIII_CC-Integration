@@ -146,15 +146,6 @@ local function main()
             print("WARNING: No response from GUI - defaulting to ENABLED")
             collectionEnabled = true
             updateRedstoneOutput()
-            
-            -- Broadcast initial state to inform other systems
-            if NET_OK then
-                rednet.broadcast({
-                    type = "buildBlocksStatus",
-                    enabled = collectionEnabled,
-                    secret = ""
-                }, PROTOCOL)
-            end
         end
     else
         print("WARNING: No modem found - running in standalone mode")
@@ -166,18 +157,6 @@ local function main()
     print("ODMK3-CollectBuildBlocks initialized")
     print("Collection state: " .. (collectionEnabled and "ENABLED" or "DISABLED"))
     debugPrint("Controller ready for commands")
-    
-    -- Broadcast initial status to synchronize with other systems
-    if NET_OK then
-        rednet.broadcast({
-            type = "buildBlocksStatus",
-            enabled = collectionEnabled,
-            secret = ""
-        }, PROTOCOL)
-    end
-    
-    -- Set up periodic status broadcast timer
-    local statusBroadcastTimer = os.startTimer(10)  -- Broadcast status every 10 seconds
     
     while true do
         local event, param1, param2, param3 = os.pullEvent()
@@ -193,17 +172,6 @@ local function main()
         elseif event == "peripheral" or event == "peripheral_detach" then
             -- Modem connected/disconnected
             openAllModems()
-            
-        elseif event == "timer" and param1 == statusBroadcastTimer then
-            -- Periodic status broadcast
-            if NET_OK then
-                rednet.broadcast({
-                    type = "buildBlocksStatus",
-                    enabled = collectionEnabled,
-                    secret = ""
-                }, PROTOCOL)
-            end
-            statusBroadcastTimer = os.startTimer(10)
             
         elseif event == "terminate" then
             print("Build Blocks Collection Controller shutting down")

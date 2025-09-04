@@ -76,7 +76,7 @@ local function loadState()
     collectBuildBlocksEnabled = true
     collectRawOreEnabled = true
     autoDriveEnabled = false
-    print("[STATE] Using default state - all collection ENABLED")
+    print("[STATE] Using default state")
     return false
 end
 
@@ -745,8 +745,7 @@ local function main()
       secret = ""
     }, PROTOCOL)
     
-    -- Query collection controllers for current states (with brief delay for startup)
-    sleep(1)  -- Give controllers time to initialize
+    -- Query collection controllers for current states
     queryCollectionStates()
     
     -- Set a timeout to reset state if no response
