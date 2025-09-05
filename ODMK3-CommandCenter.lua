@@ -413,8 +413,9 @@ local function press(id, label)
   -- Collection control commands (Page 2)
   elseif id == "NAT_BLOCKS" or id == "NAT_BLOCKS_STATUS" then
     if NET_OK then
-      local newState = not (collectNatBlocksEnabled or true)
-      collectNatBlocksEnabled = newState
+  -- Properly invert current state (previous logic always produced false due to 'or true')
+  local newState = not collectNatBlocksEnabled
+  collectNatBlocksEnabled = newState
       saveState()  -- Save state when making changes
       
       rednet.broadcast({
@@ -441,8 +442,8 @@ local function press(id, label)
     
   elseif id == "BUILD_BLOCKS" or id == "BUILD_BLOCKS_STATUS" then
     if NET_OK then
-      local newState = not (collectBuildBlocksEnabled or true)
-      collectBuildBlocksEnabled = newState
+  local newState = not collectBuildBlocksEnabled
+  collectBuildBlocksEnabled = newState
       saveState()  -- Save state when making changes
       
       rednet.broadcast({
@@ -469,8 +470,8 @@ local function press(id, label)
   
   elseif id == "RAW_ORE" or id == "RAW_ORE_STATUS" then
     if NET_OK then
-      local newState = not (collectRawOreEnabled or true)
-      collectRawOreEnabled = newState
+  local newState = not collectRawOreEnabled
+  collectRawOreEnabled = newState
       saveState()  -- Save state when making changes
       
       rednet.broadcast({

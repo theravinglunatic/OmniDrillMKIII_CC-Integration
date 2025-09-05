@@ -64,6 +64,8 @@ local lastScanTime = 0
 local scanInProgress = false
 local lastError = nil
 local relayOnline = false
+local lastStatusResponseTime = 0        -- ms since epoch of last status response
+local scanRequestTime = 0               -- ms since epoch of last scan request
 
 -- Auto-cycling state
 local autoCycleEnabled = AUTO_CYCLE_ENABLED  -- Direction-aware cycling
@@ -313,7 +315,18 @@ local function renderNoData()
     
     -- Center message
     local msg1 = "Omni-Drill MKIII Geo Scanner"
-    local msg2 = relayOnline and "Performing initial scan..." or "Connecting to scanner relay..."
+    local msg2
+    if relayOnline then
+        if scanInProgress then
+            msg2 = "Performing scan..."
+        elseif scanRequestTime > 0 and (os.epoch("utc") - scanRequestTime) > 8000 then
+            msg2 = "Scan delayed - retrying..."
+        else
+            msg2 = "Awaiting scan data..."
+        end
+    else
+        msg2 = "Connecting to scanner relay..."
+    end
     local msg3 = lastError and ("Error: " .. lastError) or ""
     
     mwriteXY(math.floor((w - #msg1) / 2) + 1, math.floor(h / 2) - 1, msg1, STATUS_COLOR, BG_COLOR)
@@ -323,8 +336,9 @@ local function renderNoData()
     end
     
     -- Status at bottom
-    mwriteXY(1, h, string.format("Relay: %s | R=Scan C=Cycle Q=Quit", 
-        relayOnline and "Online" or "Offline"), colors.lightGray, BG_COLOR)
+    local age = lastStatusResponseTime == 0 and "?" or math.floor((os.epoch("utc") - lastStatusResponseTime)/1000).."s"
+    mwriteXY(1, h, string.format("Relay:%s (last:%s) | R=Scan C=Cycle Q=Quit", 
+        relayOnline and "On" or "Off", age), colors.lightGray, BG_COLOR)
 end
 
 -- ========== Network Communication ==========
@@ -339,6 +353,7 @@ local function requestScan(radius)
     lastError = nil
     
     debugPrint("Requesting scan with radius " .. radius)
+    scanRequestTime = os.epoch("utc")
     rednet.broadcast({
         name = RELAY_NAME,
         cmd = "requestScan",
@@ -390,6 +405,7 @@ end
 
 local function handleStatusResponse(msg)
     relayOnline = msg.scannerAvailable
+    lastStatusResponseTime = os.epoch("utc")
     if not relayOnline and msg.scannerAvailable == false then
         lastError = "Scanner not available"
     else
@@ -575,12 +591,16 @@ local function main()
     
     -- Orientation update timer (check every 5 seconds)
     local orientationTimer = os.startTimer(5)
+    -- Relay status poll timer
+    local statusPollTimer = os.startTimer(10)
+    -- Scan watchdog timer
+    local scanWatchdogTimer = os.startTimer(6)
     
     -- Main event loop
     while true do
         local event, p1, p2, p3 = os.pullEvent()
         
-        if event == "rednet_message" then
+    if event == "rednet_message" then
             local sender, message, protocol = p1, p2, p3
             if protocol == PROTOCOL and type(message) == "table" then
                 -- Check secret if configured
@@ -618,12 +638,43 @@ local function main()
             -- Request orientation update
             requestOrientationData()
             orientationTimer = os.startTimer(5)
+        elseif event == "timer" and p1 == statusPollTimer then
+            -- Poll relay status periodically or if stale
+            if (not relayOnline) or (not currentData) or ((os.epoch("utc") - lastStatusResponseTime) > 15000) then
+                requestRelayStatus()
+            end
+            statusPollTimer = os.startTimer(10)
+        elseif event == "timer" and p1 == scanWatchdogTimer then
+            -- If scan appears hung (>10s) reset and retry
+            if scanInProgress and (os.epoch("utc") - scanRequestTime) > 10000 then
+                debugPrint("Scan watchdog: scan timeout, resetting state and re-requesting status")
+                scanInProgress = false
+                requestRelayStatus()
+            elseif (not currentData) and ((os.epoch("utc") - lastStatusResponseTime) > 20000) then
+                -- No data and stale status: force both
+                requestRelayStatus()
+                requestScan()
+            end
+            scanWatchdogTimer = os.startTimer(6)
             
         elseif event == "monitor_resize" then
             if currentData then
                 renderScanData()
             else
                 renderNoData()
+            end
+        elseif event == "peripheral" or event == "peripheral_detach" then
+            -- Recover from monitor/modem reattachment during movement
+            openAllModems()
+            local newMon = findMonitor()
+            if newMon and newMon ~= monitor then
+                monitor = newMon
+                setupMonitor()
+                if currentData then
+                    renderScanData()
+                else
+                    renderNoData()
+                end
             end
         end
     end

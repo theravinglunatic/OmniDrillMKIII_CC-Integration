@@ -479,7 +479,8 @@ local function press(id)
     -- Collection control commands (Page 2)
     elseif id == "NAT_BLOCKS" or id == "NAT_BLOCKS_STATUS" then
         if NET_OK then
-            local newState = not (collectNatBlocksEnabled or true)
+            -- Fix: previously always evaluated to 'not true' (false). Now correctly invert.
+            local newState = not collectNatBlocksEnabled
             collectNatBlocksEnabled = newState
             saveState()  -- Save state when making changes
             
@@ -506,7 +507,7 @@ local function press(id)
         
     elseif id == "BUILD_BLOCKS" or id == "BUILD_BLOCKS_STATUS" then
         if NET_OK then
-            local newState = not (collectBuildBlocksEnabled or true)
+            local newState = not collectBuildBlocksEnabled
             collectBuildBlocksEnabled = newState
             saveState()  -- Save state when making changes
             
@@ -533,7 +534,7 @@ local function press(id)
     
     elseif id == "RAW_ORE" or id == "RAW_ORE_STATUS" then
         if NET_OK then
-            local newState = not (collectRawOreEnabled or true)
+            local newState = not collectRawOreEnabled
             collectRawOreEnabled = newState
             saveState()  -- Save state when making changes
             
