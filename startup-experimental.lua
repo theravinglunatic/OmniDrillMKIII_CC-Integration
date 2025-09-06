@@ -39,7 +39,8 @@ local AVAILABLE_ROLES = {
     ["scanner-display"] = "ODMK3-ScannerDisplay.lua",
     ["vert-reader"] = "ODMK3-VertReader.lua",
     ["vert-rotator"] = "ODMK3-VertRotator.lua",
-    ["monitor"] = "OmniDrill-Monitor.lua"
+    ["monitor"] = "OmniDrill-Monitor.lua",
+    ["utility-rsc"] = "ODMK3-UtilityRSC.lua"
 }
 
 -- Role descriptions
@@ -63,7 +64,8 @@ local ROLE_DESCRIPTIONS = {
     ["scanner-display"] = "Geo scanner display monitor",
     ["vert-reader"] = "Vertical orientation reader (F/U/D)",
     ["vert-rotator"] = "Vertical rotation controller",
-    ["monitor"] = "Status display with metrics"
+    ["monitor"] = "Status display with metrics",
+    ["utility-rsc"] = "Rotational Speed Controller utility"
 }
 
 -- ========== Boot Server Deployment ==========
