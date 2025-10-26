@@ -11,7 +11,8 @@ local DEBUG = false
 -- GitHub Configuration
 local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
 local GITHUB_BRANCH = "experimental"
-local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/"
+-- Note: Repository now uses a folderized layout under "CC Integration/"
+local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/CC%20Integration/"
 
 -- Available scripts and their descriptions
 local AVAILABLE_SCRIPTS = {
@@ -36,7 +37,10 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-VertRotator.lua"] = "Vertical rotation controller",
     ["OmniDrill-Monitor.lua"] = "Status display with metrics",
     ["ODMK3-UtilityRSC.lua"] = "Rotational Speed Controller utility",
-    ["ODMK3-UnifiedCommand.lua"] = "Unified Command Center (Movement + Navigation + Utility)"
+    ["ODMK3-UnifiedCommand.lua"] = "Unified Command Center (Movement + Navigation + Utility)",
+    -- Newly added components
+    ["ODMK3-CabinPulley.lua"] = "Cabin pulley controller (raise/lower cabin)",
+    ["ODMK3-PortableCommand.lua"] = "Portable handheld command GUI"
 }
 
 -- Role mappings (script name -> friendly role name)
@@ -62,7 +66,9 @@ local ROLE_MAPPINGS = {
     ["ODMK3-VertRotator.lua"] = "vert-rotator",
     ["OmniDrill-Monitor.lua"] = "monitor",
     ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
-    ["ODMK3-UnifiedCommand.lua"] = "unified-command"
+    ["ODMK3-UnifiedCommand.lua"] = "unified-command",
+    ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
+    ["ODMK3-PortableCommand.lua"] = "portable-command"
 }
 
 -- ========== State Tracking ==========
@@ -92,8 +98,22 @@ local function initNetwork()
     log("Network initialized on " .. peripheral.getName(modem))
 end
 
+-- Map a script filename to its path within the GitHub repository
+local function scriptToRepoPath(scriptName)
+    -- Special cases not following ODMK3- prefix
+    if scriptName == "OmniDrill-Monitor.lua" then
+        return "Monitor/" .. scriptName
+    end
+    
+    -- General rule: folder = name without prefix and extension
+    local base = scriptName
+    base = base:gsub("^ODMK3%-", "")
+    base = base:gsub("%.lua$", "")
+    return base .. "/" .. scriptName
+end
+
 local function downloadScript(scriptName)
-    local url = GITHUB_BASE_URL .. scriptName
+    local url = GITHUB_BASE_URL .. scriptToRepoPath(scriptName)
     log("Downloading: " .. url)
     
     local response = http.get(url)
@@ -111,6 +131,40 @@ local function downloadScript(scriptName)
     scriptCache[scriptName] = content
     log("Downloaded " .. scriptName .. " (" .. #content .. " bytes)")
     return content
+end
+
+-- UnifiedCommand module files to fetch and optionally deploy
+local UNIFIED_MODULES = {
+    "modules/config.lua",
+    "modules/movement_display.lua",
+    "modules/navigation_display.lua",
+    "modules/network_handler.lua",
+    "modules/state_manager.lua",
+    "modules/utility_display.lua",
+}
+
+local function downloadUnifiedModules()
+    local count = 0
+    for _, rel in ipairs(UNIFIED_MODULES) do
+        local url = GITHUB_BASE_URL .. "UnifiedCommand/" .. rel
+        log("Downloading: " .. url)
+        local response = http.get(url)
+        if response then
+            local content = response.readAll()
+            response.close()
+            if content and content ~= "" then
+                -- Cache using the relative path key so we can deploy to that path
+                scriptCache[rel] = content
+                count = count + 1
+            else
+                print("WARNING: Unified module empty: " .. rel)
+            end
+        else
+            print("WARNING: Failed to download Unified module: " .. rel)
+        end
+        sleep(0.05)
+    end
+    return count
 end
 
 local function downloadAllScripts()
@@ -134,7 +188,11 @@ local function downloadAllScripts()
         end
         sleep(0.1) -- Brief pause to avoid overwhelming GitHub
     end
-    
+    -- Also download UnifiedCommand modules
+    print("Fetching UnifiedCommand modules...")
+    local modCount = downloadUnifiedModules()
+    print("Downloaded Unified modules: " .. modCount .. "/" .. #UNIFIED_MODULES)
+
     print("Download complete: " .. count .. "/" .. total .. " scripts cached")
     return count == total
 end
@@ -193,38 +251,50 @@ local function deployToClient(clientId, scriptName)
     if not scriptCache[scriptName] then
         error("Script " .. scriptName .. " not in cache. Run 'download' first.")
     end
-    
-    local message = {
-        cmd = "deploy",
-        script = scriptName,
-        content = scriptCache[scriptName],
-        secret = ""
-    }
-    
-    log("Deploying " .. scriptName .. " to client " .. clientId)
-    rednet.send(clientId, message, DEPLOY_PROTOCOL)
-    
-    -- Wait for acknowledgment
-    local timer = os.startTimer(10) -- 10 second timeout
-    while true do
-        local event, p1, p2, p3 = os.pullEvent()
-        
-        if event == "rednet_message" then
-            local senderId, msg, protocol = p1, p2, p3
-            if senderId == clientId and protocol == DEPLOY_PROTOCOL and type(msg) == "table" then
-                if msg.cmd == "deploy_ack" and msg.script == scriptName then
-                    if msg.success then
-                        log("Successfully deployed " .. scriptName .. " to client " .. clientId)
-                        return true
-                    else
-                        error("Client " .. clientId .. " reported deployment failure: " .. (msg.error or "unknown"))
+
+    local function sendAndAwait(scriptKey)
+        local message = {
+            cmd = "deploy",
+            script = scriptKey,
+            content = scriptCache[scriptKey],
+            secret = ""
+        }
+        log("Deploying " .. scriptKey .. " to client " .. clientId)
+        rednet.send(clientId, message, DEPLOY_PROTOCOL)
+        local timer = os.startTimer(10)
+        while true do
+            local event, p1, p2, p3 = os.pullEvent()
+            if event == "rednet_message" then
+                local senderId, msg, protocol = p1, p2, p3
+                if senderId == clientId and protocol == DEPLOY_PROTOCOL and type(msg) == "table" then
+                    if msg.cmd == "deploy_ack" and msg.script == scriptKey then
+                        if msg.success then
+                            log("Successfully deployed " .. scriptKey .. " to client " .. clientId)
+                            return true
+                        else
+                            error("Client " .. clientId .. " reported deployment failure: " .. (msg.error or "unknown"))
+                        end
                     end
                 end
+            elseif event == "timer" and p1 == timer then
+                error("Timeout waiting for deployment acknowledgment from client " .. clientId .. " (" .. scriptKey .. ")")
             end
-        elseif event == "timer" and p1 == timer then
-            error("Timeout waiting for deployment acknowledgment from client " .. clientId)
         end
     end
+
+    -- If deploying UnifiedCommand main script, deploy modules first
+    if scriptName == "ODMK3-UnifiedCommand.lua" then
+        for _, rel in ipairs(UNIFIED_MODULES) do
+            if scriptCache[rel] then
+                sendAndAwait(rel)
+                sleep(0.1)
+            else
+                print("WARNING: Unified module not cached: " .. rel)
+            end
+        end
+    end
+
+    return sendAndAwait(scriptName)
 end
 
 local function listClients()
@@ -310,6 +380,17 @@ local function deployToAll(scriptName)
                 print(err)
             else
                 local success, deployErr = pcall(function()
+                    -- If UnifiedCommand, also deploy modules first
+                    if targetScript == "ODMK3-UnifiedCommand.lua" then
+                        for _, rel in ipairs(UNIFIED_MODULES) do
+                            if scriptCache[rel] then
+                                deployToClient(clientId, rel)
+                                sleep(0.1)
+                            else
+                                print("WARNING: Unified module not cached: " .. rel)
+                            end
+                        end
+                    end
                     deployToClient(clientId, targetScript)
                     ackCount = ackCount + 1
                     print("Client " .. clientId .. " (" .. clientInfo.label .. "): SUCCESS - " .. targetScript)

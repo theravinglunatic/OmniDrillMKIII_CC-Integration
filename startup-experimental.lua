@@ -409,13 +409,25 @@ local function handleDeployment(script, content)
     
     -- Check if this script matches our role
     local ourScript = AVAILABLE_ROLES[currentRole or ""]
-    if script ~= ourScript and script ~= "startup.lua" then
+    -- Accept role's main script, startup.lua, and unified-command modules
+    local accept = false
+    if script == ourScript or script == "startup.lua" then
+        accept = true
+    elseif currentRole == "unified-command" and script:match("^modules/[%w_%-]+%.lua$") then
+        accept = true
+    end
+    if not accept then
         log("Ignoring " .. script .. " (not for our role: " .. (currentRole or "none") .. ")")
         return false
     end
     
     -- Save the script
     local success, error = pcall(function()
+        -- Ensure parent directory exists, if a path is provided
+        local dir = script:match("^(.*)/[^/]+$")
+        if dir and dir ~= "" and not fs.exists(dir) then
+            fs.makeDir(dir)
+        end
         local file = fs.open(script, "w")
         if not file then
             error("Could not open file for writing")
