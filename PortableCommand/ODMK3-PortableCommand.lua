@@ -292,7 +292,7 @@ local function layoutUtilitiesPage(w, h, top, bottomStatus)
   addListItem("NAT_BLOCKS", "Natural Blocks\nCollection", 1, collectNatBlocksEnabled or true)
   addListItem("BUILD_BLOCKS", "Build Blocks\nCollection", 2, collectBuildBlocksEnabled or true)
   addListItem("RAW_ORE", "Raw Ore\nCollection", 3, collectRawOreEnabled or true)
-  addListItem("CABIN_PULLEY", "Lower\nCabin", 4, cabinLowered)
+  addListItem("CABIN_PULLEY", "Cabin\nPulley", 4, cabinLowered)
 end
 
 -- Main layout function

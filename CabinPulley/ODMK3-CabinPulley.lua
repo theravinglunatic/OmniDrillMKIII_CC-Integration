@@ -10,21 +10,33 @@ local NAME = "odmk3-cabin-pulley"
 local RSC_SIDE = "left"
 
 -- Speed settings
-local SPEED_LOWERING = -128  -- Speed when lowering cabin
-local SPEED_RAISING = 128    -- Speed when raising cabin
+local SPEED_LOWERING = 128  -- Speed when lowering cabin
+local SPEED_RAISING = -128    -- Speed when raising cabin
 
 -- ========== State Variables ==========
 local cabinLowered = false  -- Track cabin state (false = raised, true = lowered)
 
 -- ========== Network Setup ==========
 local function openAllModems()
+    -- Wireless-only per system convention
     local opened = false
     for _, side in ipairs(rs.getSides()) do
         if peripheral.getType(side) == "modem" then
-            if peripheral.call(side, "isWireless") then
-                rednet.open(side)
-                opened = true
-                print("Opened wireless modem on " .. side)
+            local isWireless = false
+            pcall(function() isWireless = peripheral.call(side, "isWireless") end)
+            if isWireless then
+                if not rednet.isOpen(side) then
+                    local ok, err = pcall(function() rednet.open(side) end)
+                    if ok then
+                        opened = true
+                        print("Opened wireless modem on " .. side)
+                    else
+                        print("Failed to open wireless modem on " .. side .. ": " .. tostring(err))
+                    end
+                else
+                    opened = true
+                    print("Using already-open wireless modem on " .. side)
+                end
             end
         end
     end
@@ -85,13 +97,16 @@ end
 local function main()
     print("ODMK3 Cabin Pulley Controller starting...")
     
-    -- Startup delay to allow network initialization
+    -- Startup delay to allow network initialization (matching other controllers)
     print("Waiting for network initialization...")
-    sleep(0.1)
+    sleep(1.0)
     
-    -- Initialize networking
+    -- Initialize networking (retry until any modem opens)
     if not openAllModems() then
-        error("No wireless modem found!")
+        print("No modem found; retrying every 2s...")
+        while not openAllModems() do
+            sleep(2)
+        end
     end
     
     -- Find the Rotation Speed Controller
@@ -110,35 +125,35 @@ local function main()
     print("Monitoring for toggle commands...")
     print("")
     
-    -- Periodic status broadcast timer
-    local statusTimer = os.startTimer(10)
-    
-    -- Main event loop
+    -- Host service name for diagnostics (optional)
+    pcall(function() rednet.host(PROTOCOL, NAME) end)
+
+    -- Periodic status via time-based tick
+    local statusInterval = 10
+    local lastStatus = os.clock()
+
+    -- Main event loop (rednet.receive-based)
     while true do
-        local event, p1, p2, p3 = os.pullEvent()
-        
-        if event == "rednet_message" then
-            local sender, message, protocol = p1, p2, p3
-            if protocol == PROTOCOL and type(message) == "table" then
-                -- Check secret if configured
-                if SECRET == "" or message.secret == SECRET then
-                    handleToggleCommand(rsc, message)
-                    handleStatusQuery(rsc, message)
+        local sender, message, protocol = rednet.receive(PROTOCOL, 1)
+        if sender then
+            if type(message) == "table" and (SECRET == "" or message.secret == SECRET) then
+                local handled = handleToggleCommand(rsc, message) or handleStatusQuery(rsc, message)
+                if handled then
+                    print(string.format("Handled command from computer #%d", sender))
                 end
             end
-            
-        elseif event == "timer" and p1 == statusTimer then
-            -- Periodically broadcast status
+        end
+
+        -- Periodic status broadcast
+        if os.clock() - lastStatus >= statusInterval then
             rednet.broadcast({
                 type = "cabinPulleyStatus",
                 name = NAME,
                 lowered = cabinLowered,
                 secret = SECRET
             }, PROTOCOL)
-            statusTimer = os.startTimer(10)
+            lastStatus = os.clock()
         end
-        
-        sleep(0.05)
     end
 end
 

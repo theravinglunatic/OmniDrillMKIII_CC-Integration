@@ -110,6 +110,12 @@ function NetworkHandler.openAllModems()
 end
 
 function NetworkHandler.broadcast(message)
+    -- Debug logging for outbound messages
+    if Config.DEBUG and type(message) == "table" then
+        local name = message.name or "(no name)"
+        local cmd = message.cmd or "(no cmd)"
+        Config.debugPrint("Broadcasting: name=" .. tostring(name) .. ", cmd=" .. tostring(cmd))
+    end
     rednet.broadcast(message, Config.PROTOCOL)
 end
 

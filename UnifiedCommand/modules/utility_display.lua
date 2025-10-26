@@ -44,12 +44,12 @@ function UtilityDisplay.drawPage1(systemState, persistentMetrics)
     -- Row 2: Collection status
     mon.setCursorPos(1, 2)
     local collectingItems = {}
-    if systemState.collectNatBlocksEnabled then table.insert(collectingItems, "NATURAL") end
-    if systemState.collectBuildBlocksEnabled then table.insert(collectingItems, "BUILD") end
-    if systemState.collectRawOreEnabled then table.insert(collectingItems, "ORE") end
+    if systemState.collectNatBlocksEnabled then table.insert(collectingItems, " NATURAL") end
+    if systemState.collectBuildBlocksEnabled then table.insert(collectingItems, " BUILD") end
+    if systemState.collectRawOreEnabled then table.insert(collectingItems, " ORE") end
     
-    local collectionText = #collectingItems > 0 and table.concat(collectingItems, ",") or "NONE"
-    mon.write("COLLECTING: ")
+    local collectionText = #collectingItems > 0 and table.concat(collectingItems, ",") or " NONE"
+    mon.write("COLLECTING BLOCK TYPES: ")
     mon.setTextColor(#collectingItems > 0 and Config.colors.accent or Config.colors.warning)
     mon.write(collectionText)
     
@@ -59,7 +59,7 @@ function UtilityDisplay.drawPage1(systemState, persistentMetrics)
     mon.setCursorPos(1, 3)
     mon.write("AUTO-DRIVE:")
     mon.setTextColor(systemState.autoDriveEnabled and Config.colors.good or Config.colors.inactive)
-    mon.write(systemState.autoDriveEnabled and "ON" or "OFF")
+    mon.write(systemState.autoDriveEnabled and " ON" or " OFF")
     
     -- Row 4: Vault
     mon.setBackgroundColor(Config.colors.bg)
@@ -67,7 +67,7 @@ function UtilityDisplay.drawPage1(systemState, persistentMetrics)
     mon.setCursorPos(1, 4)
     mon.write("VAULT:")
     mon.setTextColor(systemState.vaultFull and Config.colors.danger or Config.colors.good)
-    mon.write(systemState.vaultFull and "FULL" or "OK")
+    mon.write(systemState.vaultFull and " FULL" or " OK")
     
     -- Row 5: Drill
     mon.setBackgroundColor(Config.colors.bg)
@@ -75,7 +75,7 @@ function UtilityDisplay.drawPage1(systemState, persistentMetrics)
     mon.setCursorPos(1, 5)
     mon.write("DRILL:")
     mon.setTextColor(systemState.drillActive and Config.colors.good or Config.colors.inactive)
-    mon.write(systemState.drillActive and "ON" or "OFF")
+    mon.write(systemState.drillActive and " ON" or " OFF")
     
     -- Row 6: Moves
     mon.setBackgroundColor(Config.colors.bg)
@@ -90,8 +90,8 @@ function UtilityDisplay.drawPage1(systemState, persistentMetrics)
     mon.setTextColor(Config.colors.text)
     mon.write("FACING:")
     mon.setTextColor(Config.colors.accent)
-    local cardinalNames = {N="NORTH", E="EAST", S="SOUTH", W="WEST"}
-    local verticalNames = {F="FRONT", U="UP", D="DOWN"}
+    local cardinalNames = {N=" NORTH ", E=" EAST ", S=" SOUTH ", W=" WEST "}
+    local verticalNames = {F=" FRONT ", U=" UP ", D=" DOWN "}
     local cardinalFull = cardinalNames[systemState.currentCardinal] or systemState.currentCardinal
     local verticalFull = verticalNames[systemState.currentVertical] or systemState.currentVertical
     mon.write(" " .. cardinalFull .. "/" .. verticalFull)
@@ -155,7 +155,7 @@ function UtilityDisplay.drawPage2(systemState)
     mon.setCursorPos(1, 6)
     mon.setBackgroundColor(systemState.cabinLowered and Config.colors.good or Config.colors.danger)
     mon.setTextColor(Config.colors.bg)
-    mon.write(" LOWER CABIN:   ")
+    mon.write(" CABIN PULLEY:   ")
     mon.write(systemState.cabinLowered and "ON " or "OFF")
     
     -- Navigation button
