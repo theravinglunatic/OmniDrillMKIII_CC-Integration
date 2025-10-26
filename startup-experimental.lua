@@ -40,7 +40,9 @@ local AVAILABLE_ROLES = {
     ["vert-reader"] = "ODMK3-VertReader.lua",
     ["vert-rotator"] = "ODMK3-VertRotator.lua",
     ["monitor"] = "OmniDrill-Monitor.lua",
-    ["utility-rsc"] = "ODMK3-UtilityRSC.lua"
+    ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
+    ["unified-command"] = "ODMK3-UnifiedCommand.lua",
+    ["cabin-pulley"] = "ODMK3-CabinPulley.lua"
 }
 
 -- Role descriptions
@@ -65,7 +67,9 @@ local ROLE_DESCRIPTIONS = {
     ["vert-reader"] = "Vertical orientation reader (F/U/D)",
     ["vert-rotator"] = "Vertical rotation controller",
     ["monitor"] = "Status display with metrics",
-    ["utility-rsc"] = "Rotational Speed Controller utility"
+    ["utility-rsc"] = "Rotational Speed Controller utility",
+    ["unified-command"] = "Unified Command Center (Movement + Navigation + Utility)",
+    ["cabin-pulley"] = "Cabin pulley controller (raise/lower cabin)"
 }
 
 -- ========== Boot Server Deployment ==========
@@ -314,6 +318,9 @@ local function selectRole()
                     print("Error saving role. Please try again.")
                     sleep(2)
                 end
+            else
+                print("Selection cancelled. Please choose again.")
+                sleep(1)
             end
         end
     end

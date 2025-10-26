@@ -34,7 +34,9 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-ScannerDisplay.lua"] = "Geo scanner display monitor",
     ["ODMK3-VertReader.lua"] = "Vertical orientation reader (F/U/D)",
     ["ODMK3-VertRotator.lua"] = "Vertical rotation controller",
-    ["OmniDrill-Monitor.lua"] = "Status display with metrics"
+    ["OmniDrill-Monitor.lua"] = "Status display with metrics",
+    ["ODMK3-UtilityRSC.lua"] = "Rotational Speed Controller utility",
+    ["ODMK3-UnifiedCommand.lua"] = "Unified Command Center (Movement + Navigation + Utility)"
 }
 
 -- Role mappings (script name -> friendly role name)
@@ -58,7 +60,9 @@ local ROLE_MAPPINGS = {
     ["ODMK3-ScannerDisplay.lua"] = "scanner-display",
     ["ODMK3-VertReader.lua"] = "vert-reader",
     ["ODMK3-VertRotator.lua"] = "vert-rotator",
-    ["OmniDrill-Monitor.lua"] = "monitor"
+    ["OmniDrill-Monitor.lua"] = "monitor",
+    ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
+    ["ODMK3-UnifiedCommand.lua"] = "unified-command"
 }
 
 -- ========== State Tracking ==========
