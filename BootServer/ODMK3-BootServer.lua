@@ -11,8 +11,11 @@ local DEBUG = false
 -- GitHub Configuration
 local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
 local GITHUB_BRANCH = "experimental"
--- Note: Repository now uses a folderized layout under "CC Integration/"
-local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/CC%20Integration/"
+-- Use refs/heads/<branch>/ to ensure direct branch resolution on raw.githubusercontent
+-- Repo layout places component folders at the repo root (e.g., AutoDrive/ODMK3-AutoDrive.lua)
+local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/refs/heads/" .. GITHUB_BRANCH .. "/"
+-- Fallback base (older raw format without refs/heads)
+local GITHUB_BASE_URL_FLAT = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/"
 
 -- Available scripts and their descriptions
 local AVAILABLE_SCRIPTS = {
@@ -112,24 +115,61 @@ local function scriptToRepoPath(scriptName)
     return base .. "/" .. scriptName
 end
 
-local function downloadScript(scriptName)
-    local url = GITHUB_BASE_URL .. scriptToRepoPath(scriptName)
-    log("Downloading: " .. url)
-    
-    local response = http.get(url)
-    if not response then
-        error("Failed to download " .. scriptName .. " from GitHub")
+-- Robust fetch which reports HTTP status or failure reason
+local function http_fetch(url, timeout)
+    timeout = timeout or 10
+    local ok, reqErr = pcall(function()
+        http.request({ url = url, headers = { ["User-Agent"] = "OmniDrillBootServer/1.0" } })
+    end)
+    if not ok then
+        return nil, nil, "http_request_error: " .. tostring(reqErr)
     end
-    
-    local content = response.readAll()
-    response.close()
-    
+    local timer = os.startTimer(timeout)
+    while true do
+        local event, a, b, c = os.pullEvent()
+        if event == "http_success" then
+            local u, handle = a, b
+            if u == url then
+                local code = nil
+                if handle.getResponseCode then
+                    pcall(function() code = handle.getResponseCode() end)
+                end
+                local body = handle.readAll()
+                handle.close()
+                return body, code, nil
+            end
+        elseif event == "http_failure" then
+            local u, err = a, b
+            if u == url then
+                return nil, nil, err or "http_failure"
+            end
+        elseif event == "timer" and a == timer then
+            return nil, nil, "timeout"
+        end
+    end
+end
+
+local function downloadScript(scriptName)
+    -- Try folderized path first
+    local folderPath = scriptToRepoPath(scriptName)
+    local folderUrl = GITHUB_BASE_URL .. folderPath
+    print("DEBUG: Trying folderized: " .. folderUrl)
+    local content, code, err = http_fetch(folderUrl, 15)
+    if not content then
+        print("DEBUG: Folderized failed (code=" .. tostring(code) .. ", err=" .. tostring(err) .. ")")
+        -- Fallback to flat layout (old repo structure)
+        local flatUrl = GITHUB_BASE_URL_FLAT .. scriptName
+        print("DEBUG: Trying flat: " .. flatUrl)
+        content, code, err = http_fetch(flatUrl, 15)
+        if not content then
+            error("Failed to download " .. scriptName .. " (flat code=" .. tostring(code) .. ", err=" .. tostring(err) .. ")")
+        end
+    end
     if not content or content == "" then
         error("Downloaded script " .. scriptName .. " is empty")
     end
-    
     scriptCache[scriptName] = content
-    log("Downloaded " .. scriptName .. " (" .. #content .. " bytes)")
+    print("SUCCESS: " .. scriptName .. " (" .. #content .. " bytes)")
     return content
 end
 
@@ -144,23 +184,18 @@ local UNIFIED_MODULES = {
 }
 
 local function downloadUnifiedModules()
+    print("DEBUG: Attempting to download UnifiedCommand modules...")
     local count = 0
     for _, rel in ipairs(UNIFIED_MODULES) do
         local url = GITHUB_BASE_URL .. "UnifiedCommand/" .. rel
-        log("Downloading: " .. url)
-        local response = http.get(url)
-        if response then
-            local content = response.readAll()
-            response.close()
-            if content and content ~= "" then
-                -- Cache using the relative path key so we can deploy to that path
-                scriptCache[rel] = content
-                count = count + 1
-            else
-                print("WARNING: Unified module empty: " .. rel)
-            end
+        print("DEBUG: Module URL: " .. url)
+        local content, code, err = http_fetch(url, 15)
+        if content and content ~= "" then
+            scriptCache[rel] = content
+            count = count + 1
+            print("DEBUG: Module OK: " .. rel .. " (" .. #content .. " bytes)")
         else
-            print("WARNING: Failed to download Unified module: " .. rel)
+            print("WARNING: Failed to download Unified module '" .. rel .. "' (code=" .. tostring(code) .. ", err=" .. tostring(err) .. ")")
         end
         sleep(0.05)
     end
@@ -169,6 +204,11 @@ end
 
 local function downloadAllScripts()
     print("Downloading all scripts from GitHub...")
+    print("DEBUG: Base URL: " .. GITHUB_BASE_URL)
+    print("DEBUG: Branch: " .. GITHUB_BRANCH)
+    print("DEBUG: Repo: " .. GITHUB_REPO)
+    print()
+    
     local count = 0
     local total = 0
     
@@ -188,6 +228,8 @@ local function downloadAllScripts()
         end
         sleep(0.1) -- Brief pause to avoid overwhelming GitHub
     end
+    
+    print()
     -- Also download UnifiedCommand modules
     print("Fetching UnifiedCommand modules...")
     local modCount = downloadUnifiedModules()
