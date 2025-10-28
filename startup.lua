@@ -77,8 +77,8 @@ local function deployBootServer(selectedRole)
     -- GitHub configuration for boot server download (matches repo layout)
     local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
     local GITHUB_BRANCH = "experimental"
-    -- Note: Space in folder name must be URL-encoded
-    local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/CC%20Integration/"
+    -- Use refs/heads path style (working URL), repo root contains component folders
+    local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/refs/heads/" .. GITHUB_BRANCH .. "/"
 
     local BOOT_SERVER_PATH = "BootServer/ODMK3-BootServer.lua"
     local ONBOARD_COMMAND_PATH = "OnboardCommand/ODMK3-OnboardCommand.lua"
@@ -238,10 +238,10 @@ local function saveRole(role)
         
         currentRole = role
         currentScript = script
-        
-        -- Special handling for onboard/unified command roles: also deploy boot server
-        if role == "onboard-command" or role == "unified-command" then
-            print(((role == "unified-command") and "Unified" or "Onboard") .. " Command role selected - also deploying Boot Server...")
+
+        -- Special handling for unified command role: also deploy boot server
+        if role == "unified-command" then
+            print("Unified Command role selected - also deploying Boot Server...")
             deployBootServer(role)
         end
         
