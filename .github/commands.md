@@ -5,7 +5,7 @@ Date: 2025-10-26
 PowerShell commands executed successfully:
 
 ```
-$src = "C:\Users\Lunatic\AppData\Roaming\gdlauncher_carbon\data\instances\Omni-Drill CC Developer1\instance\saves\MKIII CC Experimental\computercraft\computer"
+$src = "C:\Users\Lunatic\AppData\Roaming\gdlauncher_carbon\data\instances\Omni-Drill CC Developer1\instance\saves\Omni-Drill Developer CC\computercraft\computer"
 $dst = "C:\Users\Lunatic\OneDrive\Projects\Omni Drill MKIII\CC Integration Copy Here"
 $computers = Get-ChildItem $src -Directory | Where-Object { $_.Name -ne ".github" }
 foreach ($c in $computers) {
@@ -29,7 +29,7 @@ foreach ($c in $computers) {
 		}
 	}
 	if ($c.Name -eq "0") {
-		$pcDst = Join-Path $dst "PortableCommand"
+		$pcDst = Join-Path $dst "RemoteCommand"
 		if (-not (Test-Path $pcDst)) { New-Item -ItemType Directory -Path $pcDst -Force | Out-Null }
 		$csf = Join-Path $c.FullName "command_state"
 		if (Test-Path $csf) { Copy-Item $csf -Destination $pcDst -Force }
@@ -41,5 +41,5 @@ Notes:
 - Skips startup.lua and dotfiles (e.g., .odmk3_role).
 - Creates component folders automatically (e.g., AutoDrive, Monitor, UnifiedCommand).
 - Copies UnifiedCommand/modules and state files (unified_state, onboard_state).
-- Copies PortableCommand/command_state from computer 0.
+- Copies RemoteCommand/command_state from computer 0.
 

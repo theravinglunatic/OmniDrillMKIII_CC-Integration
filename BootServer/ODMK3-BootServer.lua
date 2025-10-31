@@ -43,7 +43,7 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-UnifiedCommand.lua"] = "Unified Command Center (Movement + Navigation + Utility)",
     -- Newly added components
     ["ODMK3-CabinPulley.lua"] = "Cabin pulley controller (raise/lower cabin)",
-    ["ODMK3-PortableCommand.lua"] = "Portable handheld command GUI"
+    ["ODMK3-RemoteCommand.lua"] = "Portable handheld command GUI"
 }
 
 -- Role mappings (script name -> friendly role name)
@@ -71,7 +71,7 @@ local ROLE_MAPPINGS = {
     ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
     ["ODMK3-UnifiedCommand.lua"] = "unified-command",
     ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
-    ["ODMK3-PortableCommand.lua"] = "portable-command"
+    ["ODMK3-RemoteCommand.lua"] = "portable-command"
 }
 
 -- ========== State Tracking ==========

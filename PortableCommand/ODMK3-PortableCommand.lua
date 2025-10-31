@@ -1,4 +1,4 @@
--- ODMK3-PortableCommand.lua
+-- ODMK3-RemoteCommand.lua
 -- Omni-Drill MKIII: Direction GUI (Pocket/Advanced)
 -- v1: draw 6 buttons (N, E, S, W, U, D) and report taps.
 
