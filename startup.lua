@@ -5,7 +5,7 @@
 -- ========== Configuration ==========
 local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
-local DEBUG = true  -- Set to false in production for maximum startup speed
+local DEBUG = false  -- Set to true for verbose logging
 
 -- Role storage
 local ROLE_FILE = ".odmk3_role"
@@ -39,8 +39,7 @@ local AVAILABLE_ROLES = {
     ["utility-display"] = "ODMK3-Utility.lua",
     ["vert-reader"] = "ODMK3-VertReader.lua",
     ["vert-rotator"] = "ODMK3-VertRotator.lua",
-    ["monitor"] = "OmniDrill-Monitor.lua",
-        ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
+    ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
     ["cabin-pulley"] = "ODMK3-CabinPulley.lua"
 }
 
@@ -67,52 +66,6 @@ local ROLE_DESCRIPTIONS = {
     ["utility-rsc"] = "Rotational Speed Controller utility",
     ["cabin-pulley"] = "Cabin pulley controller (raise/lower cabin)"
 }
-
--- ========== Portable Command Asset Fetching ==========
--- The portable-command computer (pocket) is authoritative and reboots rarely;
--- each boot it should pull latest versions of both ODMK3-Command.lua and ODMK3-BootServer.lua directly from GitHub.
-local function fetchPortableCommandAssets()
-    if currentRole ~= "portable-command" then
-        -- Still register alias if boot server already present locally
-        if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
-        return
-    end
-    local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
-    local GITHUB_BRANCH = "experimental"
-    -- Two layout styles: folderized (refs/heads) and integration folder; prefer folderized raw path first
-    local RAW_BASE = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/refs/heads/" .. GITHUB_BRANCH .. "/"
-    local INTEGRATION_BASE = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/CC%20Integration/"
-
-    local assets = {
-        { name = "ODMK3-BootServer.lua", paths = { RAW_BASE .. "BootServer/ODMK3-BootServer.lua", INTEGRATION_BASE .. "BootServer/ODMK3-BootServer.lua" }, alias = "boot" },
-        { name = "ODMK3-Command.lua",    paths = { RAW_BASE .. "Command/ODMK3-Command.lua",    INTEGRATION_BASE .. "Command/ODMK3-Command.lua" } },
-    }
-
-    for _, asset in ipairs(assets) do
-        local downloaded = false
-        for _, url in ipairs(asset.paths) do
-            local resp = http.get(url)
-            if resp then
-                local content = resp.readAll(); resp.close()
-                if content and content ~= "" then
-                    local f = fs.open(asset.name, "w")
-                    if f then
-                        f.write(content); f.close()
-                        print("Updated " .. asset.name .. " (" .. #content .. " bytes)")
-                        if asset.alias then shell.setAlias(asset.alias, asset.name) end
-                        downloaded = true
-                        break
-                    else
-                        print("Failed to open " .. asset.name .. " for writing")
-                    end
-                end
-            end
-        end
-        if not downloaded then
-            print("WARN: Could not update " .. asset.name .. " from GitHub")
-        end
-    end
-end
 
 -- ========== State Management ==========
 local currentRole = nil
@@ -159,9 +112,6 @@ local function saveRole(role)
         
         currentRole = role
         currentScript = script
-        
-        fetchPortableCommandAssets()
-        
         return true
     end
     return false
@@ -396,12 +346,23 @@ local function runScript()
     end
     
     if not fs.exists(currentScript) then
+        if currentRole == "portable-command" then
+            print("ERROR: " .. currentScript .. " not found!")
+            print("Run ODMK3-Bootstrap.lua to fetch required files from GitHub.")
+            print("Command: ODMK3-Bootstrap")
+            sleep(10)
+            return
+        end
         print("Script " .. currentScript .. " not found. Waiting for deployment...")
         return  
     end
     
-    print("Starting role script: " .. currentScript)
-    -- Removed startup delay for faster launch
+    -- Set boot alias for portable-command role
+    if currentRole == "portable-command" and fs.exists("ODMK3-BootServer.lua") then
+        shell.setAlias("boot", "ODMK3-BootServer.lua")
+    end
+    
+    log("Starting role script: " .. currentScript)
     
     if currentRole == "utility-display" then
         -- Run scanner display and utility relay together
@@ -475,18 +436,17 @@ local function main(...)
     end
 
     -- Load existing role immediately (before network) to minimize time-to-script
-    currentRole = loadRole(); if currentRole then currentScript = AVAILABLE_ROLES[currentRole] end
-    fetchPortableCommandAssets()
-
-    -- Initialize network (non-blocking & fast)
-    local hasNetwork = initNetwork()
+    currentRole = loadRole()
+    if currentRole then 
+        currentScript = AVAILABLE_ROLES[currentRole]
+    end
 
     -- If no saved role, enter selection (one-time interactive path)
     if not currentRole then
         print("No role configured. Please select a role for this computer.")
         print()
-        currentRole = selectRole(); currentScript = AVAILABLE_ROLES[currentRole]
-        fetchPortableCommandAssets()
+        currentRole = selectRole()
+        currentScript = AVAILABLE_ROLES[currentRole]
     else
         -- Minimal output for fast boot; only show when DEBUG enabled
         if DEBUG then
@@ -494,7 +454,16 @@ local function main(...)
         end
     end
 
-    -- Start listeners / script immediately
+    -- Portable-command role: skip network, run command script directly
+    if currentRole == "portable-command" then
+        while true do
+            runScript()
+            sleep(0)
+        end
+    end
+
+    -- All other roles: initialize network and start listeners
+    local hasNetwork = initNetwork()
     if hasNetwork then
         if DEBUG then log("Starting network listener...") end
         parallel.waitForAny(
