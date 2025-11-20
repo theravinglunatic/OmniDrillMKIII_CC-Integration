@@ -27,6 +27,7 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-CollectNatBlocks.lua"] = "Natural blocks collection controller", 
     ["ODMK3-CollectRawOre.lua"] = "Raw ore collection controller",
     ["ODMK3-Command.lua"] = "Handheld pocket computer GUI",
+    ["ODMK3-Utility.lua"] = "Utility + scanner support controller",
     ["ODMK3-DrillControlON.lua"] = "Drill activation controller",
     ["ODMK3-DriveController.lua"] = "Main movement controller",
     ["ODMK3-DriveHelper.lua"] = "Drive helper utilities",
@@ -63,6 +64,7 @@ local ROLE_MAPPINGS = {
     ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
     ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
     ["ODMK3-Command.lua"] = "portable-command"
+    , ["ODMK3-Utility.lua"] = "utility"
 }
 
 -- ========== State Tracking ==========
@@ -165,20 +167,33 @@ local function downloadScript(scriptName)
 end
 
 -- UnifiedCommand module files to fetch and optionally deploy
-local UNIFIED_MODULES = {
-    "modules/config.lua",
-    "modules/movement_display.lua",
-    "modules/navigation_display.lua",
-    "modules/network_handler.lua",
-    "modules/state_manager.lua",
-    "modules/utility_display.lua",
+-- Module sets for scripts that require shared scanner/utility modules.
+local MODULE_FILE_LIST = {
+    "config.lua",
+    "scanner_cache.lua",
+    "scanner_config.lua",
+    "scanner_network.lua",
+    "scanner_orientation.lua",
+    "scanner_render.lua",
+    "scanner_utils.lua",
+    "vault_relay.lua",
 }
 
-local function downloadUnifiedModules()
-    print("DEBUG: Attempting to download UnifiedCommand modules...")
+-- Map main script -> repo folder containing its modules (all stored locally under modules/)
+local MODULE_SETS = {
+    ["ODMK3-Command.lua"] = { repoFolder = "Command", modules = MODULE_FILE_LIST },
+    ["ODMK3-Utility.lua"] = { repoFolder = "Utility", modules = MODULE_FILE_LIST },
+    ["ODMK3-ScannerDisplay.lua"] = { repoFolder = "Utility", modules = MODULE_FILE_LIST },
+}
+
+local function downloadModuleSet(scriptName)
+    local set = MODULE_SETS[scriptName]
+    if not set then return 0 end
+    print("DEBUG: Downloading modules for " .. scriptName .. "...")
     local count = 0
-    for _, rel in ipairs(UNIFIED_MODULES) do
-        local url = GITHUB_BASE_URL .. "UnifiedCommand/" .. rel
+    for _, file in ipairs(set.modules) do
+        local rel = "modules/" .. file
+        local url = GITHUB_BASE_URL .. set.repoFolder .. "/" .. rel
         print("DEBUG: Module URL: " .. url)
         local content, code, err = http_fetch(url, 15)
         if content and content ~= "" then
@@ -186,7 +201,7 @@ local function downloadUnifiedModules()
             count = count + 1
             print("DEBUG: Module OK: " .. rel .. " (" .. #content .. " bytes)")
         else
-            print("WARNING: Failed to download Unified module '" .. rel .. "' (code=" .. tostring(code) .. ", err=" .. tostring(err) .. ")")
+            print("WARNING: Failed module '" .. rel .. "' (code=" .. tostring(code) .. ", err=" .. tostring(err) .. ")")
         end
         sleep(0.05)
     end
@@ -221,10 +236,19 @@ local function downloadAllScripts()
     end
     
     print()
-    -- Also download UnifiedCommand modules
-    print("Fetching UnifiedCommand modules...")
-    local modCount = downloadUnifiedModules()
-    print("Downloaded Unified modules: " .. modCount .. "/" .. #UNIFIED_MODULES)
+    -- Download module sets for all scripts that need them
+    print("Fetching module sets (Command / Utility / ScannerDisplay)...")
+    local totalMods = 0
+    local expectedMods = 0
+    local countedScripts = {}
+    for mainScript, set in pairs(MODULE_SETS) do
+        if not countedScripts[mainScript] then
+            expectedMods = expectedMods + #set.modules
+            countedScripts[mainScript] = true
+        end
+        totalMods = totalMods + downloadModuleSet(mainScript)
+    end
+    print("Downloaded modules: " .. totalMods .. "/" .. expectedMods .. " (per script sets)")
 
     print("Download complete: " .. count .. "/" .. total .. " scripts cached")
     return count == total
@@ -315,14 +339,16 @@ local function deployToClient(clientId, scriptName)
         end
     end
 
-    -- If deploying UnifiedCommand main script, deploy modules first
-    if scriptName == "ODMK3-UnifiedCommand.lua" then
-        for _, rel in ipairs(UNIFIED_MODULES) do
+    -- If deploying a script with modules, deploy those first
+    local moduleSet = MODULE_SETS[scriptName]
+    if moduleSet then
+        for _, file in ipairs(moduleSet.modules) do
+            local rel = "modules/" .. file
             if scriptCache[rel] then
                 sendAndAwait(rel)
                 sleep(0.1)
             else
-                print("WARNING: Unified module not cached: " .. rel)
+                print("WARNING: Module not cached: " .. rel)
             end
         end
     end
@@ -413,14 +439,16 @@ local function deployToAll(scriptName)
                 print(err)
             else
                 local success, deployErr = pcall(function()
-                    -- If UnifiedCommand, also deploy modules first
-                    if targetScript == "ODMK3-UnifiedCommand.lua" then
-                        for _, rel in ipairs(UNIFIED_MODULES) do
+                    -- If script has modules, deploy them first
+                    local moduleSetAll = MODULE_SETS[targetScript]
+                    if moduleSetAll then
+                        for _, file in ipairs(moduleSetAll.modules) do
+                            local rel = "modules/" .. file
                             if scriptCache[rel] then
                                 deployToClient(clientId, rel)
                                 sleep(0.1)
                             else
-                                print("WARNING: Unified module not cached: " .. rel)
+                                print("WARNING: Module not cached: " .. rel)
                             end
                         end
                     end
