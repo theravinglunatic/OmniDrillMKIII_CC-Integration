@@ -607,8 +607,4 @@ local function main()
 end
 
 -- ========== Startup ==========
-if not term.isColor() then
-    error("Advanced computer required for boot server!")
-end
-
 main()
