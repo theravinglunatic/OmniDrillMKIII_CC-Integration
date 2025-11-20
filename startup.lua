@@ -7,6 +7,11 @@ local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
 local DEBUG = true  -- Set to false in production for maximum startup speed
 
+-- GitHub (only used by portable-command auto updater)
+local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
+local GITHUB_BRANCH = "experimental"
+local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/refs/heads/" .. GITHUB_BRANCH .. "/"
+
 -- Role storage
 local ROLE_FILE = ".odmk3_role"
 local SCRIPT_FILE = ".odmk3_script"
@@ -70,28 +75,41 @@ local ROLE_DESCRIPTIONS = {
 
 -- ========== Boot Server Deployment ==========
 -- ========== Boot Server (Manual Launch Support) ==========
-local function ensureBootServer()
+local function updatePortableScripts()
     if currentRole ~= "portable-command" then
+        -- For non portable-command just set alias if boot server exists
         if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
         return
     end
-    if fs.exists("ODMK3-BootServer.lua") then
-        shell.setAlias("boot","ODMK3-BootServer.lua")
-        return
+
+    print("[portable-command] Checking GitHub for updates...")
+    local targets = {
+        { path = "BootServer/ODMK3-BootServer.lua", localName = "ODMK3-BootServer.lua" },
+        { path = "PortableCommand/ODMK3-Command.lua", localName = "ODMK3-Command.lua" }
+    }
+
+    for _, t in ipairs(targets) do
+        local url = GITHUB_BASE_URL .. t.path
+        local resp = http.get(url)
+        if not resp then
+            print("Failed to fetch: " .. t.path)
+        else
+            local content = resp.readAll(); resp.close()
+            if not content or content == "" then
+                print("Empty download: " .. t.path)
+            else
+                local f = fs.open(t.localName, "w")
+                if f then
+                    f.write(content); f.close()
+                    print("Updated " .. t.localName .. " (" .. #content .. " bytes)")
+                else
+                    print("Cannot write file: " .. t.localName)
+                end
+            end
+        end
+        sleep(0) -- yield
     end
-    print("Boot Server missing. Downloading...")
-    local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
-    local GITHUB_BRANCH = "experimental"
-    local BASE = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/CC%20Integration/"
-    local url = BASE .. "BootServer/ODMK3-BootServer.lua"
-    local resp = http.get(url)
-    if not resp then print("Failed to fetch Boot Server.") return end
-    local content = resp.readAll(); resp.close()
-    if not content or content == "" then print("Boot Server download empty.") return end
-    local f = fs.open("ODMK3-BootServer.lua","w"); if not f then print("Cannot save Boot Server.") return end
-    f.write(content); f.close()
-    print("Boot Server downloaded (" .. #content .. " bytes). Use 'boot' to launch.")
-    shell.setAlias("boot","ODMK3-BootServer.lua")
+    shell.setAlias("boot", "ODMK3-BootServer.lua")
 end
 
 -- ========== State Management ==========
@@ -140,7 +158,7 @@ local function saveRole(role)
         currentRole = role
         currentScript = script
         
-        ensureBootServer()
+        updatePortableScripts()
         
         return true
     end
@@ -466,7 +484,7 @@ local function main(...)
         print("No role configured. Please select a role for this computer.")
         print()
         currentRole = selectRole(); currentScript = AVAILABLE_ROLES[currentRole]
-        ensureBootServer(); if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
+        updatePortableScripts(); if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
     else
         -- Minimal output for fast boot; only show when DEBUG enabled
         if DEBUG then
