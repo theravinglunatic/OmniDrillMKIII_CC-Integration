@@ -166,9 +166,15 @@ local function downloadScript(scriptName)
     return content
 end
 
--- UnifiedCommand module files to fetch and optionally deploy
--- Module sets for scripts that require shared scanner/utility modules.
-local MODULE_FILE_LIST = {
+-- Module sets for scripts that require modules
+local COMMAND_MODULES = {
+    "config.lua",
+    "navigation_display.lua",
+    "network_handler.lua",
+    "state_manager.lua",
+}
+
+local UTILITY_MODULES = {
     "config.lua",
     "scanner_cache.lua",
     "scanner_config.lua",
@@ -181,9 +187,9 @@ local MODULE_FILE_LIST = {
 
 -- Map main script -> repo folder containing its modules (all stored locally under modules/)
 local MODULE_SETS = {
-    ["ODMK3-Command.lua"] = { repoFolder = "Command", modules = MODULE_FILE_LIST },
-    ["ODMK3-Utility.lua"] = { repoFolder = "Utility", modules = MODULE_FILE_LIST },
-    ["ODMK3-ScannerDisplay.lua"] = { repoFolder = "Utility", modules = MODULE_FILE_LIST },
+    ["ODMK3-Command.lua"] = { repoFolder = "Command", modules = COMMAND_MODULES },
+    ["ODMK3-Utility.lua"] = { repoFolder = "Utility", modules = UTILITY_MODULES },
+    ["ODMK3-ScannerDisplay.lua"] = { repoFolder = "Utility", modules = UTILITY_MODULES },
 }
 
 local function downloadModuleSet(scriptName)
