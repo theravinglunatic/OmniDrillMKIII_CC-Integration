@@ -19,7 +19,7 @@ local GITHUB_BASE_URL_FLAT = "https://raw.githubusercontent.com/" .. GITHUB_REPO
 
 -- Available scripts and their descriptions
 local AVAILABLE_SCRIPTS = {
-    ["ODMK3-AutoDrive.lua"] = "Automated movement timing controller",
+    ["ODMK3-DriveUtility.lua"] = "Drive utility & movement timing controller",
     ["ODMK3-AuxVaultThreshold.lua"] = "Vault capacity monitoring system",
     ["ODMK3-CardinalReader.lua"] = "Cardinal direction reader (N/E/S/W)",
     ["ODMK3-CardinalRotator.lua"] = "Cardinal rotation controller",
@@ -44,7 +44,7 @@ local AVAILABLE_SCRIPTS = {
 
 -- Role mappings (script name -> friendly role name)
 local ROLE_MAPPINGS = {
-    ["ODMK3-AutoDrive.lua"] = "auto-drive",
+    ["ODMK3-DriveUtility.lua"] = "drive-utility",
     ["ODMK3-AuxVaultThreshold.lua"] = "vault-threshold", 
     ["ODMK3-CardinalReader.lua"] = "cardinal-reader",
     ["ODMK3-CardinalRotator.lua"] = "cardinal-rotator",

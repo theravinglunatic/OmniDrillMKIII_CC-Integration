@@ -1,10 +1,10 @@
--- ODMK3-AutoDrive.lua
+-- ODMK3-DriveUtility.lua
 -- Automatically initiates movement when enabled, checking for safety signal first
 -- Receives commands from GUI to toggle auto-drive mode
 -- Only sends move command when redstone safety signal is present on back face
 
 -- ========== Configuration ==========
-local NAME = "odmk3-auto-drive"
+local NAME = "odmk3-drive-utility"
 local PROTOCOL = "Omni-DrillMKIII"
 local SECRET = ""  -- Keep empty to disable, or match with other components
 local DEBUG = false  -- Set to false to disable debug messages
@@ -115,7 +115,7 @@ end
 local function main()
     -- Initialize networking
     openAllModems()
-    print("ODMK3-AutoDrive initialized")
+    print("ODMK3-DriveUtility initialized")
     debugPrint("Listening for commands on protocol: " .. PROTOCOL)
     
     -- Initialize state

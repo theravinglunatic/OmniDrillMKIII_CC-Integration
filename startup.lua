@@ -20,7 +20,7 @@ end
 
 -- Available roles (friendly names mapped to script files)
 local AVAILABLE_ROLES = {
-    ["auto-drive"] = "ODMK3-AutoDrive.lua",
+    ["drive-utility"] = "ODMK3-DriveUtility.lua",
     ["vault-threshold"] = "ODMK3-AuxVaultThreshold.lua", 
     ["cardinal-reader"] = "ODMK3-CardinalReader.lua",
     ["cardinal-rotator"] = "ODMK3-CardinalRotator.lua",
@@ -45,7 +45,7 @@ local AVAILABLE_ROLES = {
     ["boot-server"] = "ODMK3-BootServer.lua"
 }-- Role descriptions
 local ROLE_DESCRIPTIONS = {
-    ["auto-drive"] = "Automated movement timing controller",
+    ["drive-utility"] = "Drive utility & movement timing controller",
     ["vault-threshold"] = "Vault capacity monitoring system",
     ["cardinal-reader"] = "Cardinal direction reader (N/E/S/W)",
     ["cardinal-rotator"] = "Cardinal rotation controller",
@@ -79,6 +79,12 @@ local function loadRole()
         if file then
             currentRole = file.readAll()
             file.close()
+            -- Backward compatibility: migrate legacy role name
+            if currentRole == "auto-drive" then
+                currentRole = "drive-utility"
+                local f = fs.open(ROLE_FILE, "w") if f then f.write(currentRole) f.close() end
+                local sf = fs.open(SCRIPT_FILE, "w") if sf then sf.write("ODMK3-DriveUtility.lua") sf.close() end
+            end
             if fs.exists(SCRIPT_FILE) then
                 local scriptFile = fs.open(SCRIPT_FILE, "r")
                 if scriptFile then
