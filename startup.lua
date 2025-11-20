@@ -27,7 +27,7 @@ local AVAILABLE_ROLES = {
     ["collect-build-blocks"] = "ODMK3-CollectBuildBlocks.lua",
     ["collect-nat-blocks"] = "ODMK3-CollectNatBlocks.lua",
     ["collect-raw-ore"] = "ODMK3-CollectRawOre.lua",
-    ["portable-command"] = "ODMK3-RemoteCommand.lua",
+    ["portable-command"] = "ODMK3-Command.lua",
     ["drill-control"] = "ODMK3-DrillControlON.lua",
     ["drive-controller"] = "ODMK3-DriveController.lua",
     ["drive-helper"] = "ODMK3-DriveHelper.lua", 
@@ -36,11 +36,11 @@ local AVAILABLE_ROLES = {
     ["gantry-shift"] = "ODMK3-GantryShift.lua",
     ["geo-scanner-relay"] = "ODMK3-GeoScannerRelay.lua",
     ["scanner-display"] = "ODMK3-ScannerDisplay.lua",
+    ["utility-display"] = "ODMK3-Utility.lua",
     ["vert-reader"] = "ODMK3-VertReader.lua",
     ["vert-rotator"] = "ODMK3-VertRotator.lua",
     ["monitor"] = "OmniDrill-Monitor.lua",
-    ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
-    ["unified-command"] = "ODMK3-UnifiedCommand.lua",
+        ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
     ["cabin-pulley"] = "ODMK3-CabinPulley.lua"
 }
 
@@ -61,136 +61,37 @@ local ROLE_DESCRIPTIONS = {
     ["gantry-action"] = "Sequenced gearshift controller",
     ["gantry-shift"] = "Gantry direction controller",
     ["geo-scanner-relay"] = "Geo scanner relay computer",
-    ["scanner-display"] = "Geo scanner display monitor",
+    ["utility-display"] = "Utility display + vault relay",
     ["vert-reader"] = "Vertical orientation reader (F/U/D)",
     ["vert-rotator"] = "Vertical rotation controller",
-    ["monitor"] = "Status display with metrics",
     ["utility-rsc"] = "Rotational Speed Controller utility",
-    ["unified-command"] = "Unified Command Center (Movement + Navigation + Utility)",
     ["cabin-pulley"] = "Cabin pulley controller (raise/lower cabin)"
 }
 
 -- ========== Boot Server Deployment ==========
-local function deployBootServer(selectedRole)
-    print("Downloading and deploying Boot Server...")
-
-    -- GitHub configuration for boot server download (matches repo layout)
+-- ========== Boot Server (Manual Launch Support) ==========
+local function ensureBootServer()
+    if currentRole ~= "portable-command" then
+        if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
+        return
+    end
+    if fs.exists("ODMK3-BootServer.lua") then
+        shell.setAlias("boot","ODMK3-BootServer.lua")
+        return
+    end
+    print("Boot Server missing. Downloading...")
     local GITHUB_REPO = "theravinglunatic/OmniDrillMKIII_CC-Integration"
     local GITHUB_BRANCH = "experimental"
-    -- Use refs/heads path style (working URL), repo root contains component folders
-    local GITHUB_BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/refs/heads/" .. GITHUB_BRANCH .. "/"
-
-    local BOOT_SERVER_PATH = "BootServer/ODMK3-BootServer.lua"
-    local ONBOARD_COMMAND_PATH = "OnboardCommand/ODMK3-OnboardCommand.lua"
-    local UNIFIED_COMMAND_PATH = "UnifiedCommand/ODMK3-UnifiedCommand.lua"
-
-    local success, err = pcall(function()
-        -- Download Boot Server
-        local bootUrl = GITHUB_BASE_URL .. BOOT_SERVER_PATH
-        log("Downloading Boot Server from: " .. bootUrl)
-
-        local bootResponse = http.get(bootUrl)
-        if not bootResponse then
-            error("Failed to download ODMK3-BootServer.lua from GitHub")
-        end
-
-        local bootContent = bootResponse.readAll()
-        bootResponse.close()
-
-        if not bootContent or bootContent == "" then
-            error("Downloaded Boot Server script is empty")
-        end
-
-        -- Save the boot server script
-        local bootFile = fs.open("ODMK3-BootServer.lua", "w")
-        if not bootFile then
-            error("Could not create boot server file")
-        end
-
-        bootFile.write(bootContent)
-        bootFile.close()
-
-        log("Successfully deployed Boot Server (" .. #bootContent .. " bytes)")
-
-        -- Determine which UI script to download based on role
-        local uiPath
-        local uiTarget
-        if selectedRole == "unified-command" then
-            uiPath = UNIFIED_COMMAND_PATH
-            uiTarget = "ODMK3-UnifiedCommand.lua"
-        else
-            uiPath = ONBOARD_COMMAND_PATH
-            uiTarget = "ODMK3-OnboardCommand.lua"
-        end
-
-        -- Download UI script (Onboard or Unified)
-        local uiUrl = GITHUB_BASE_URL .. uiPath
-        log("Downloading UI script from: " .. uiUrl)
-
-        local uiResponse = http.get(uiUrl)
-        if not uiResponse then
-            error("Failed to download " .. uiTarget .. " from GitHub")
-        end
-
-        local uiContent = uiResponse.readAll()
-        uiResponse.close()
-
-        if not uiContent or uiContent == "" then
-            error("Downloaded UI script is empty")
-        end
-
-        local uiFile = fs.open(uiTarget, "w")
-        if not uiFile then
-            error("Could not create UI script file: " .. uiTarget)
-        end
-        uiFile.write(uiContent)
-        uiFile.close()
-        log("Successfully deployed UI script (" .. #uiContent .. " bytes): " .. uiTarget)
-
-        -- If Unified Command, also download module files into /modules
-        if selectedRole == "unified-command" then
-            if not fs.exists("modules") then fs.makeDir("modules") end
-            local modules = {
-                "config.lua",
-                "movement_display.lua",
-                "navigation_display.lua",
-                "network_handler.lua",
-                "state_manager.lua",
-                "utility_display.lua",
-            }
-
-            for _, mod in ipairs(modules) do
-                local modUrl = GITHUB_BASE_URL .. "UnifiedCommand/modules/" .. mod
-                log("Downloading module: " .. modUrl)
-                local modResp = http.get(modUrl)
-                if modResp then
-                    local modContent = modResp.readAll()
-                    modResp.close()
-                    if modContent and modContent ~= "" then
-                        local modFile = fs.open("modules/" .. mod, "w")
-                        if modFile then
-                            modFile.write(modContent)
-                            modFile.close()
-                        end
-                    else
-                        log("Warning: module empty: " .. mod)
-                    end
-                else
-                    log("Warning: failed to download module: " .. mod)
-                end
-            end
-        end
-
-        print("Boot Server and UI script deployed successfully!")
-        print("Boot Server: ODMK3-BootServer.lua")
-        print("UI Script: " .. (selectedRole == "unified-command" and "ODMK3-UnifiedCommand.lua" or "ODMK3-OnboardCommand.lua"))
-        print("Access boot server with 'boot' command after the UI starts.")
-    end)
-
-    if not success then
-        print("ERROR deploying scripts: " .. err)
-        print("You may need to download them manually or check network connection.")
-    end
+    local BASE = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. GITHUB_BRANCH .. "/CC%20Integration/"
+    local url = BASE .. "BootServer/ODMK3-BootServer.lua"
+    local resp = http.get(url)
+    if not resp then print("Failed to fetch Boot Server.") return end
+    local content = resp.readAll(); resp.close()
+    if not content or content == "" then print("Boot Server download empty.") return end
+    local f = fs.open("ODMK3-BootServer.lua","w"); if not f then print("Cannot save Boot Server.") return end
+    f.write(content); f.close()
+    print("Boot Server downloaded (" .. #content .. " bytes). Use 'boot' to launch.")
+    shell.setAlias("boot","ODMK3-BootServer.lua")
 end
 
 -- ========== State Management ==========
@@ -238,12 +139,8 @@ local function saveRole(role)
         
         currentRole = role
         currentScript = script
-
-        -- Special handling for unified command role: also deploy boot server
-        if role == "unified-command" then
-            print("Unified Command role selected - also deploying Boot Server...")
-            deployBootServer(role)
-        end
+        
+        ensureBootServer()
         
         return true
     end
@@ -486,70 +383,23 @@ local function runScript()
     print("Starting role script: " .. currentScript)
     -- Removed startup delay for faster launch
     
-    -- Special handling for onboard/unified command: use multishell to run GUI and boot server in separate tabs
-    if currentRole == "onboard-command" or currentRole == "unified-command" then
-        print("Onboard Command mode: Starting GUI and Boot Server in separate tabs")
-        
-        -- Check if multishell is available
+    if currentRole == "utility-display" then
+        -- Run scanner display and utility relay together
+        print("Utility Display mode: Starting Scanner and Utility in separate tabs")
         if multishell then
-            -- Launch the onboard command GUI in the current tab (tab 1)
-            local guiTab = multishell.getCurrent()
-            multishell.setTitle(guiTab, (currentRole == "unified-command" and "Unified GUI" or "Onboard GUI"))
-            
-            -- Launch the boot server in a new tab (tab 2) 
-            local bootTab = multishell.launch({}, "ODMK3-BootServer.lua")
-            multishell.setTitle(bootTab, "Boot Server")
-            
-            print("Starting Onboard Command GUI...")
-            print("Boot Server available in tab 2")
-            sleep(1)
-            
-            -- Run the onboard command script in this tab
-            local success, error = pcall(function()
-                shell.run(currentScript)
-            end)
-            
-            if not success then
-                print("Error running onboard script: " .. error)
-                print("Script will restart in 5 seconds...")
-                sleep(5)
-            end
+            local tab1 = multishell.launch({}, "ODMK3-ScannerDisplay.lua")
+            multishell.setTitle(tab1, "Scanner Display")
+            local tab2 = multishell.launch({}, "ODMK3-Utility.lua")
+            multishell.setTitle(tab2, "Utility Relay")
+            -- Keep this shell idle while tabs run
+            while true do sleep(60) end
         else
-            -- Fallback to parallel execution if multishell not available
-            print("Multishell not available, using parallel execution")
-            print("Type 'boot' to access Boot Server console")
-            
             parallel.waitForAny(
                 function()
-                    -- Run the onboard command script
-                    local success, error = pcall(function()
-                        shell.run(currentScript)
-                    end)
-                    
-                    if not success then
-                        print("Error running onboard script: " .. error)
-                        print("Script will restart in 5 seconds...")
-                        sleep(5)
-                    end
+                    pcall(function() shell.run("ODMK3-ScannerDisplay.lua") end)
                 end,
                 function()
-                    -- Handle boot server console access
-                    while true do
-                        local event, param1 = os.pullEvent()
-                        if event == "char" and param1 == "b" then
-                            -- Check if full "boot" command
-                            local input = "b" .. read()
-                            if input == "boot" then
-                                if fs.exists("ODMK3-BootServer.lua") then
-                                    print("Starting Boot Server console...")
-                                    shell.run("ODMK3-BootServer.lua")
-                                    print("Boot Server console closed. Returning to onboard command.")
-                                else
-                                    print("Boot Server not found. Try redeploying the onboard-command role.")
-                                end
-                            end
-                        end
-                    end
+                    pcall(function() shell.run("ODMK3-Utility.lua") end)
                 end
             )
         end
@@ -605,10 +455,8 @@ local function main(...)
     end
 
     -- Load existing role immediately (before network) to minimize time-to-script
-    currentRole = loadRole()
-    if currentRole then
-        currentScript = AVAILABLE_ROLES[currentRole]
-    end
+    currentRole = loadRole(); if currentRole then currentScript = AVAILABLE_ROLES[currentRole] end
+    ensureBootServer(); if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
 
     -- Initialize network (non-blocking & fast)
     local hasNetwork = initNetwork()
@@ -617,8 +465,8 @@ local function main(...)
     if not currentRole then
         print("No role configured. Please select a role for this computer.")
         print()
-        currentRole = selectRole()
-        currentScript = AVAILABLE_ROLES[currentRole]
+        currentRole = selectRole(); currentScript = AVAILABLE_ROLES[currentRole]
+        ensureBootServer(); if fs.exists("ODMK3-BootServer.lua") then shell.setAlias("boot","ODMK3-BootServer.lua") end
     else
         -- Minimal output for fast boot; only show when DEBUG enabled
         if DEBUG then

@@ -1,6 +1,0 @@
-{
-  collectNatBlocksEnabled = true,
-  collectBuildBlocksEnabled = true,
-  autoDriveEnabled = false,
-  collectRawOreEnabled = true,
-}

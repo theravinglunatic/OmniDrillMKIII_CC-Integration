@@ -45,6 +45,7 @@ local function main()
 		print("No wireless modem found; aborting.")
 		return
 	end
+	pcall(function() rednet.host(PROTOCOL, NAME) end)
 	print("Cardinal Reader initialized")
 	local lastFacing = detectFacing()
 	if lastFacing then 
@@ -53,6 +54,7 @@ local function main()
 	end
 	
 	local timerId = os.startTimer(1)
+	local hbTimerId = os.startTimer(2)
 	
 	while true do
 		local e, p1, p2, p3 = os.pullEvent()
@@ -66,6 +68,12 @@ local function main()
 				lastFacing = f
 			end
 			timerId = os.startTimer(1)
+
+		elseif e == "timer" and p1 == hbTimerId then
+			-- Heartbeat broadcast to help late listeners recover
+			local f = detectFacing() or lastFacing
+			if f then broadcastFacing(f) end
+			hbTimerId = os.startTimer(2)
 			
 		elseif e == "rednet_message" then
 			-- Handle queries
@@ -77,6 +85,8 @@ local function main()
 					local f = detectFacing() or lastFacing
 					if f then 
 						rednet.send(sender, { type="facing", name=NAME, facing=f, secret=SECRET }, PROTOCOL)
+						-- Also broadcast for resilience so all listeners can refresh
+						broadcastFacing(f)
 					end
 				end
 			end

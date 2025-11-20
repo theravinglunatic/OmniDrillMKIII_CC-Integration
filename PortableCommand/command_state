@@ -1,7 +1,0 @@
-{
-  collectNatBlocksEnabled = true,
-  cabinLowered = false,
-  collectRawOreEnabled = true,
-  autoDriveEnabled = false,
-  collectBuildBlocksEnabled = false,
-}

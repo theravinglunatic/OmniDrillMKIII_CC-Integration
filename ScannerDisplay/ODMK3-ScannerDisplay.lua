@@ -1,10 +1,9 @@
 -- ODMK3-ScannerDisplay.lua
 -- Geo Scanner display for Omni-Drill MKIII cabin
 -- Receives scan data from relay and displays on monitor
--- Manual control re-enabled for testing slice orientations
+-- Automatic-only display (manual controls removed)
 -- Based on geo_sonar.lua visualization system
 
--- ========== Configuration ==========
 local PROTOCOL = "Omni-DrillMKIII"
 local NAME = "odmk3-scanner-display"
 local RELAY_NAME = "odmk3-geo-scanner-relay"
@@ -13,45 +12,56 @@ local VERT_READER_NAME = "odmk3-vert-reader"
 local SECRET = ""
 
 -- Display settings
-local DEFAULT_RADIUS = 12
-local DEFAULT_SLICE_THICK = 1
-local DEFAULT_SLICE_OFFSET = -2
-local DEFAULT_VIEW = "front"  -- "top" (XZ), "front" (XY), "side" (ZY)
-local LEGEND_ROWS = 3
+local ScannerCfg = require("modules.scanner_config")
+local ScannerCache = require("modules.scanner_cache")
+local ScannerRender = require("modules.scanner_render")
+local ScannerUtils = require("modules.scanner_utils")
+local ScannerOrientation = require("modules.scanner_orientation")
+
+-- Display settings (with config fallbacks)
+local DEFAULT_RADIUS = (ScannerCfg.ui and ScannerCfg.ui.defaultRadius) or 12
+local DEFAULT_SLICE_THICK = (ScannerCfg.ui and ScannerCfg.ui.defaultSliceThick) or 1
+local DEFAULT_SLICE_OFFSET = (ScannerCfg.ui and ScannerCfg.ui.defaultSliceOffset) or -2
+local DEFAULT_VIEW = (ScannerCfg.ui and ScannerCfg.ui.defaultView) or "front"  -- "top" (XZ), "front" (XY), "side" (ZY)
+local LEGEND_ROWS = (ScannerCfg.layout and ScannerCfg.layout.legendRows) or 3
 
 -- Auto-cycling settings
-local AUTO_CYCLE_ENABLED = true  -- Re-enabled for direction-aware cycling
-local AUTO_CYCLE_INTERVAL = 0.5  -- seconds between slice changes
-local AUTO_SCAN_INTERVAL = 30  -- seconds, 0 to disable
+local AUTO_CYCLE_ENABLED = (ScannerCfg.auto and ScannerCfg.auto.cycle and ScannerCfg.auto.cycle.enabled) ~= false
+local AUTO_CYCLE_INTERVAL = (ScannerCfg.auto and ScannerCfg.auto.cycle and ScannerCfg.auto.cycle.intervalSec) or 0.5
+local AUTO_SCAN_INTERVAL = (ScannerCfg.auto and ScannerCfg.auto.scan and ScannerCfg.auto.scan.intervalSec) or 0
+local HAZARD_BLINK_INTERVAL = (ScannerCfg.auto and ScannerCfg.auto.hazardBlinkIntervalSec) or 0.25
+local AGE_REFRESH_INTERVAL = (ScannerCfg.auto and ScannerCfg.auto.ageRefreshIntervalSec) or 1
 
 -- Direction-based display settings
-local DIRECTION_SETTINGS = {
-    -- Negative range directions use -2 .. -12
-    N = {view = "front", minOffset = -12, maxOffset = -2},  -- North: FRONT (XY), -2 to -12
-    W = {view = "side",  minOffset = -12, maxOffset = -2},  -- West: SIDE (ZY), will descend -2 -> -12
-    F = {view = "front", minOffset = -12, maxOffset = -2},  -- Front (default)
-    D = {view = "top",   minOffset = -12, maxOffset = -2},  -- Down: TOP (XZ)
-    -- Positive range directions use 2 .. 12
-    E = {view = "side",  minOffset = 2,  maxOffset = 12},   -- East: SIDE (ZY)
-    S = {view = "front", minOffset = 2,  maxOffset = 12},   -- South: FRONT (XY)
-    U = {view = "top",   minOffset = 2,  maxOffset = 12},   -- Up: TOP (XZ)
+local DIRECTION_SETTINGS = (ScannerCfg.directionSettings) or {
+    N = {view = "front", minOffset = -12, maxOffset = -2},
+    W = {view = "side",  minOffset = -12, maxOffset = -2},
+    F = {view = "front", minOffset = -12, maxOffset = -2},
+    D = {view = "top",   minOffset = -12, maxOffset = -2},
+    E = {view = "side",  minOffset = 2,  maxOffset = 12},
+    S = {view = "front", minOffset = 2,  maxOffset = 12},
+    U = {view = "top",   minOffset = 2,  maxOffset = 12},
 }
-
--- Colors (matching geo_sonar.lua)
-local BG_COLOR = colors.black
-local FRAME_COLOR = colors.gray
-local POINT_COLOR = colors.gray  -- changed from lime to gray for lower-value materials
-local ORE_COLOR = colors.orange
-local FLUID_COLOR = colors.lightBlue
-local WOOD_COLOR = colors.brown
-local MARK_FG = colors.red     -- "you are here" marker
-local MARK_BG = colors.black
-local MARK_CHAR = "X"
-local STATUS_COLOR = colors.white
-local ERROR_COLOR = colors.red
+-- Colors (matching geo_sonar.lua) now customizable via config
+local BG_COLOR = (ScannerCfg.colors and ScannerCfg.colors.BG) or colors.black
+local FRAME_COLOR = (ScannerCfg.colors and ScannerCfg.colors.FRAME) or colors.gray
+local POINT_COLOR = (ScannerCfg.colors and ScannerCfg.colors.POINT) or colors.gray
+local ORE_COLOR = (ScannerCfg.colors and ScannerCfg.colors.ORE) or colors.orange
+local FLUID_COLOR = (ScannerCfg.colors and ScannerCfg.colors.FLUID) or colors.lightBlue
+local WOOD_COLOR = (ScannerCfg.colors and ScannerCfg.colors.WOOD) or colors.brown
+local MARK_FG = (ScannerCfg.colors and ScannerCfg.colors.MARK_FG) or colors.red
+local MARK_BG = (ScannerCfg.colors and ScannerCfg.colors.MARK_BG) or colors.black
+local MARK_CHAR = (ScannerCfg.ui and ScannerCfg.ui.mark and ScannerCfg.ui.mark.char) or "X"
+local STATUS_COLOR = (ScannerCfg.colors and ScannerCfg.colors.STATUS) or colors.white
+local ERROR_COLOR = (ScannerCfg.colors and ScannerCfg.colors.ERROR) or colors.red
+local HEADER_BG = (ScannerCfg.colors and ScannerCfg.colors.headerBG) or colors.yellow
+local HEADER_FG = (ScannerCfg.colors and ScannerCfg.colors.headerFG) or colors.black
 
 -- Debug configuration
-local DEBUG = false
+local DEBUG = (ScannerCfg.debug and ScannerCfg.debug.enabled) or false
+
+-- Overlay single-character labels on ore pixels
+local SHOW_ORE_LABELS = (ScannerCfg.ui and ScannerCfg.ui.showOreLabels) ~= false
 
 -- ========== State Variables ==========
 local monitor = nil
@@ -61,11 +71,19 @@ local sliceThick = DEFAULT_SLICE_THICK
 local sliceOffset = DEFAULT_SLICE_OFFSET
 local currentView = DEFAULT_VIEW
 local lastScanTime = 0
+local lastScanGameTicks = 0          -- in-game ticks when last scan completed
 local scanInProgress = false
 local lastError = nil
 local relayOnline = false
 local lastStatusResponseTime = 0        -- ms since epoch of last status response
 local scanRequestTime = 0               -- ms since epoch of last scan request
+local relayCooldownMs = 0               -- last reported cooldown from relay (ms)
+local pendingScanTimer = nil            -- timer id for deferred scan after cooldown
+local pendingScanEta = 0                -- ms epoch when pending scan will fire
+local waitingCooldown = false           -- UI status flag
+local newScanBtn = nil                  -- New Scan disabled (unused)
+-- Cached aggregates for right pane (legend, POIs, hazards)
+local sidePaneCache = nil
 
 -- Auto-cycling state
 local autoCycleEnabled = AUTO_CYCLE_ENABLED  -- Direction-aware cycling
@@ -85,6 +103,12 @@ end
 
 -- ========== Network Setup ==========
 local function openAllModems()
+    local ok, cfg = pcall(require, "modules.config")
+    if ok and type(cfg) == "table" and type(cfg.openAllModems) == "function" then
+        local opened = cfg.openAllModems()
+        if opened then return true end
+        -- fall through to local scan if not opened
+    end
     local opened = false
     for _, side in ipairs(rs.getSides()) do
         if peripheral.getType(side) == "modem" then
@@ -121,224 +145,115 @@ local function setupMonitor()
     return true
 end
 
--- ========== Monitor Drawing Functions ==========
-local function mclear()
-    monitor.setBackgroundColor(BG_COLOR)
-    monitor.clear()
-    monitor.setCursorPos(1, 1)
-end
-
-local function mwriteXY(x, y, text, fg, bg)
-    if fg then monitor.setTextColor(fg) end
-    if bg then monitor.setBackgroundColor(bg) end
-    monitor.setCursorPos(x, y)
-    monitor.write(text)
-end
-
-local function fillRect(x1, y1, x2, y2, bg)
-    monitor.setBackgroundColor(bg)
-    for y = y1, y2 do
-        monitor.setCursorPos(x1, y)
-        monitor.write(string.rep(" ", x2 - x1 + 1))
-    end
-end
-
-local function drawBox(x1, y1, x2, y2, fg)
-    monitor.setTextColor(fg)
-    for x = x1, x2 do
-        monitor.setCursorPos(x, y1)
-        monitor.write("-")
-        monitor.setCursorPos(x, y2)
-        monitor.write("-")
-    end
-    for y = y1, y2 do
-        monitor.setCursorPos(x1, y)
-        monitor.write("|")
-        monitor.setCursorPos(x2, y)
-        monitor.write("|")
-    end
-end
+-- (Monitor drawing helpers moved into modules.scanner_render)
 
 -- ========== Data Processing (from geo_sonar.lua) ==========
-local function classifyColor(name, tags)
-    if name:find("lava") or name:find("water") or (tags and tags["minecraft:fluid"]) then
-        return FLUID_COLOR
-    elseif name:find("ore") or (name:find(":deepslate_") and name:find("ore")) then
-        return ORE_COLOR
-    elseif name:find("log") or name:find("wood") then
-        return WOOD_COLOR
-    else
-        return POINT_COLOR
-    end
-end
-
-local VIEW_DEF = {
-    top   = {U="x", V="z", W="y", name="TOP (XZ)"},
-    front = {U="x", V="y", W="z", name="FRONT (XY)"},
-    side  = {U="z", V="y", W="x", name="SIDE (ZY)"},
-}
-
-local function axisVal(b, axis)
-    return b[axis]
-end
-
-local function centerFromBlocks(blocks)
-    local min = {x=1e9, y=1e9, z=1e9}
-    local max = {x=-1e9, y=-1e9, z=-1e9}
-    for _, b in ipairs(blocks) do
-        if b.x < min.x then min.x = b.x end
-        if b.x > max.x then max.x = b.x end
-        if b.y < min.y then min.y = b.y end
-        if b.y > max.y then max.y = b.y end
-        if b.z < min.z then min.z = b.z end
-        if b.z > max.z then max.z = b.z end
-    end
-    return {
-        x = math.floor((min.x + max.x) / 2 + 0.5),
-        y = math.floor((min.y + max.y) / 2 + 0.5),
-        z = math.floor((min.z + max.z) / 2 + 0.5),
+-- Compute and cache side-pane aggregates (legend ore counts, POIs, hazards)
+local function recomputeSidePaneCache()
+    local params = {
+        currentData = currentData,
+        currentView = currentView,
+        sliceThick = sliceThick,
+        cycleMinOffset = cycleMinOffset,
+        cycleMaxOffset = cycleMaxOffset,
+        VIEW_DEF = ScannerUtils.VIEW_DEF,
+        classifyColorFn = function(name, tags)
+            return ScannerUtils.classifyColor(name, tags, ScannerCfg, POINT_COLOR)
+        end,
+        oreLabelFromNameFn = ScannerUtils.oreLabelFromName,
+        centerFromBlocksFn = ScannerUtils.centerFromBlocks,
+        axisValFn = ScannerUtils.axisVal,
+        ORE_COLOR = ORE_COLOR,
+        matchRuleFn = ScannerUtils.matchRule,
+        poiRules = ScannerCfg.poiRules,
+        hazardRules = ScannerCfg.hazardRules,
     }
+    sidePaneCache = ScannerCache.recompute(params)
 end
 
-local function buildMap(blocks, viewKey, sliceThick, sliceOffset)
-    local vd = VIEW_DEF[viewKey]
-    if not vd then vd = VIEW_DEF.top end
-    local C = centerFromBlocks(blocks)
-
-    -- slice window along W
-    local half = math.floor((sliceThick - 1) / 2)
-    local wMin = C[vd.W] + sliceOffset - half
-    local wMax = C[vd.W] + sliceOffset + (sliceThick - 1 - half)
-
-    local pts = {}
-    local prio = {[ORE_COLOR]=3, [FLUID_COLOR]=2, [WOOD_COLOR]=1, [POINT_COLOR]=0}
-    for _, b in ipairs(blocks) do
-        local w = axisVal(b, vd.W)
-        if w >= wMin and w <= wMax then
-            local du = axisVal(b, vd.U) - C[vd.U]
-            local dv = axisVal(b, vd.V) - C[vd.V]
-            local key = du .. "," .. dv
-            local col = classifyColor(b.name or "", b.tags or {})
-            if not pts[key] or prio[col] > prio[pts[key]] then
-                pts[key] = col
-            end
-        end
-    end
-    return pts, C
-end
-
-local function uvToPixel(du, dv, gx1, gy1, gx2, gy2, radius)
-    local gw, gh = gx2 - gx1 + 1, gy2 - gy1 + 1
-    local nx = (du / radius + 1) / 2    -- 0..1
-    local ny = (-dv / radius + 1) / 2   -- Flip Y coordinate for proper orientation
-    local px = gx1 + math.floor(nx * (gw - 1) + 0.5)
-    local py = gy1 + math.floor(ny * (gh - 1) + 0.5)
-    return px, py
+-- In-game time helpers
+local function formatGameAge(lastTicks)
+    return ScannerUtils.formatGameAge(lastTicks)
 end
 
 -- ========== Display Rendering ==========
+local function renderMapArea()
+    local p = {
+        currentData = currentData,
+        currentView = currentView,
+        sliceThick = sliceThick,
+        sliceOffset = sliceOffset,
+        currentRadius = currentRadius,
+        FRAME_COLOR = FRAME_COLOR,
+        BG_COLOR = BG_COLOR,
+        MARK_FG = MARK_FG,
+        MARK_BG = MARK_BG,
+        MARK_CHAR = MARK_CHAR,
+        SHOW_ORE_LABELS = SHOW_ORE_LABELS,
+        buildMapFn = function(data, view, thick, offset)
+            local pts, _ = ScannerUtils.buildMap(data, view, thick, offset, ScannerCfg, SHOW_ORE_LABELS, {
+                ORE_COLOR = ORE_COLOR,
+                FLUID_COLOR = FLUID_COLOR,
+                WOOD_COLOR = WOOD_COLOR,
+                POINT_COLOR = POINT_COLOR,
+            })
+            return pts
+        end,
+        uvToPixelFn = ScannerUtils.uvToPixel,
+    }
+    ScannerRender.renderMapArea(monitor, p)
+end
+
+local function renderSidePane()
+    local p = {
+        currentData = currentData,
+        currentView = currentView,
+        BG_COLOR = BG_COLOR,
+        HEADER_BG = HEADER_BG,
+        HEADER_FG = HEADER_FG,
+        STATUS_COLOR = STATUS_COLOR,
+        ERROR_COLOR = ERROR_COLOR,
+        VIEW_DEF = ScannerUtils.VIEW_DEF,
+        formatGameAgeFn = formatGameAge,
+        lastScanGameTicks = lastScanGameTicks,
+        lastError = lastError,
+        scanInProgress = scanInProgress,
+        relayOnline = relayOnline,
+        waitingCooldown = waitingCooldown,
+        pendingScanEta = pendingScanEta,
+        relayCooldownMs = relayCooldownMs,
+    }
+    ScannerRender.renderSidePane(monitor, p, sidePaneCache or {legendCounts={}, poiFound={}, hazardFound={}}, ScannerCfg)
+end
+
+-- Lightweight refresh: only update hazard blinking lines using cache
+local function renderHazardBlinkUpdate()
+    local p = {
+        BG_COLOR = BG_COLOR,
+        STATUS_COLOR = STATUS_COLOR,
+    }
+    ScannerRender.renderHazardBlinkUpdate(monitor, p, sidePaneCache or {hazardFound={}}, ScannerCfg)
+end
+
 local function renderScanData()
-    if not monitor or not currentData then
-        return
-    end
-    
-    mclear()
-    local w, h = monitor.getSize()
-    local usableH = h - LEGEND_ROWS
-
-    drawBox(1, 1, w, usableH, FRAME_COLOR)
-
-    local pts, C = buildMap(currentData, currentView, sliceThick, sliceOffset)
-    local vd = VIEW_DEF[currentView]
-    local viewName = vd.name
-
-    local gx1, gy1 = 2, 2
-    local gx2, gy2 = w - 1, usableH - 1
-
-    -- paint cells by sampling each display pixel -> nearest (dU,dV)
-    for py = gy1, gy2 do
-        for px = gx1, gx2 do
-            local gw, gh = gx2 - gx1 + 1, gy2 - gy1 + 1
-            local nx = (px - gx1) / math.max(gw - 1, 1) * 2 - 1
-            local ny = (py - gy1) / math.max(gh - 1, 1) * 2 - 1
-            local du = math.floor(nx * currentRadius + 0.5)
-            local dv = math.floor(-ny * currentRadius + 0.5)  -- Flip Y coordinate for proper orientation
-            local key = du .. "," .. dv
-            local c = pts[key]
-            if c then
-                monitor.setBackgroundColor(c)
-                monitor.setCursorPos(px, py)
-                monitor.write(" ")
-            end
-        end
-    end
-
-    -- "You are here" marker at (dU=0,dV=0)
-    local mx, my = uvToPixel(0, 0, gx1, gy1, gx2, gy2, currentRadius)
-    monitor.setTextColor(MARK_FG)
-    monitor.setBackgroundColor(MARK_BG)
-    monitor.setCursorPos(mx, my)
-    monitor.write(MARK_CHAR)
-
-    -- Legend/status
-    local y = usableH + 1
-    fillRect(1, y, w, h, BG_COLOR)
-    
-    -- Status line 1: View and parameters
-    local cycleStatus = autoCycleEnabled and "AUTO" or "MANUAL"
-    local directionInfo = string.format("%s/%s", currentCardinal, currentVertical)
-    mwriteXY(1, y, string.format("%s  R:%d  Slice:%d  Off:%d  [%s] %s", 
-        viewName, currentRadius, sliceThick, sliceOffset, cycleStatus, directionInfo), STATUS_COLOR, BG_COLOR)
-    
-    -- Status line 2: Scan info
-    local scanAge = os.epoch("utc") - lastScanTime
-    local ageText = lastScanTime > 0 and string.format("Age:%ds", math.floor(scanAge/1000)) or "No data"
-    local blockCount = currentData and #currentData or 0
-    mwriteXY(1, y + 1, string.format("Blocks:%d  %s  Relay:%s", 
-        blockCount, ageText, relayOnline and "Online" or "Offline"), STATUS_COLOR, BG_COLOR)
-        
-    -- Status line 3: Controls or error
-    if lastError then
-        mwriteXY(1, y + 2, "ERROR: " .. lastError, ERROR_COLOR, BG_COLOR)
-    elseif scanInProgress then
-        mwriteXY(1, y + 2, "Scanning...", colors.yellow, BG_COLOR)
-    else
-        mwriteXY(1, y + 2, "R=Rescan  W/S=Offset  A/D=Thick  V=View  C=Cycle  Q=Quit", colors.lightGray, BG_COLOR)
-    end
+    if not monitor or not currentData then return end
+    -- Only clear and redraw both panes when explicitly asked
+    renderMapArea()
+    renderSidePane()
 end
 
 local function renderNoData()
     if not monitor then return end
-    
-    mclear()
-    local w, h = monitor.getSize()
-    
-    -- Center message
-    local msg1 = "Omni-Drill MKIII Geo Scanner"
-    local msg2
-    if relayOnline then
-        if scanInProgress then
-            msg2 = "Performing scan..."
-        elseif scanRequestTime > 0 and (os.epoch("utc") - scanRequestTime) > 8000 then
-            msg2 = "Scan delayed - retrying..."
-        else
-            msg2 = "Awaiting scan data..."
-        end
-    else
-        msg2 = "Connecting to scanner relay..."
-    end
-    local msg3 = lastError and ("Error: " .. lastError) or ""
-    
-    mwriteXY(math.floor((w - #msg1) / 2) + 1, math.floor(h / 2) - 1, msg1, STATUS_COLOR, BG_COLOR)
-    mwriteXY(math.floor((w - #msg2) / 2) + 1, math.floor(h / 2), msg2, STATUS_COLOR, BG_COLOR)
-    if msg3 ~= "" then
-        mwriteXY(math.floor((w - #msg3) / 2) + 1, math.floor(h / 2) + 1, msg3, ERROR_COLOR, BG_COLOR)
-    end
-    
-    -- Status at bottom
-    local age = lastStatusResponseTime == 0 and "?" or math.floor((os.epoch("utc") - lastStatusResponseTime)/1000).."s"
-    mwriteXY(1, h, string.format("Relay:%s (last:%s) | R=Scan C=Cycle Q=Quit", 
-        relayOnline and "On" or "Off", age), colors.lightGray, BG_COLOR)
+    ScannerRender.renderNoData(monitor, {
+        BG_COLOR = BG_COLOR,
+        STATUS_COLOR = STATUS_COLOR,
+        ERROR_COLOR = ERROR_COLOR,
+        relayOnline = relayOnline,
+        scanInProgress = scanInProgress,
+        scanRequestTime = scanRequestTime,
+        lastError = lastError,
+        lastStatusResponseTime = lastStatusResponseTime,
+    })
 end
 
 -- ========== Network Communication ==========
@@ -393,8 +308,10 @@ local function handleScanResponse(msg)
         currentData = msg.data
         currentRadius = msg.radius or currentRadius
         lastScanTime = msg.timestamp or os.epoch("utc")
+        lastScanGameTicks = ScannerUtils.getGameTicks()
         lastError = nil
         print(string.format("Received scan data: %d blocks", #msg.data))
+        recomputeSidePaneCache()
         renderScanData()
     else
         lastError = msg.error or "Unknown scan error"
@@ -406,6 +323,9 @@ end
 local function handleStatusResponse(msg)
     relayOnline = msg.scannerAvailable
     lastStatusResponseTime = os.epoch("utc")
+    if msg.cooldown ~= nil then
+        relayCooldownMs = tonumber(msg.cooldown) or 0
+    end
     if not relayOnline and msg.scannerAvailable == false then
         lastError = "Scanner not available"
     else
@@ -424,41 +344,22 @@ end
 
 -- ========== Direction-Aware Display Functions ==========
 local function updateDisplaySettings()
-    -- Determine active direction (vertical takes precedence for U/D)
-    local newDirection = currentDirection
-    if currentVertical == "U" or currentVertical == "D" then
-        newDirection = currentVertical
-    else
-        newDirection = currentCardinal
-    end
-    
-    if newDirection ~= currentDirection then
-        currentDirection = newDirection
-        local settings = DIRECTION_SETTINGS[currentDirection]
-        if settings then
-            currentView = settings.view
-            cycleMinOffset = settings.minOffset
-            cycleMaxOffset = settings.maxOffset
+    local settings = ScannerOrientation.computeSettings(currentCardinal, currentVertical, DIRECTION_SETTINGS)
+    if settings.direction ~= currentDirection or settings.view ~= currentView
+        or settings.cycleMinOffset ~= cycleMinOffset or settings.cycleMaxOffset ~= cycleMaxOffset then
+        currentDirection = settings.direction
+        currentView = settings.view
+        cycleMinOffset = settings.cycleMinOffset
+        cycleMaxOffset = settings.cycleMaxOffset
+        cycleDirection = settings.cycleDirection
+        sliceOffset = settings.initSliceOffset
 
-            -- Determine cycle direction and starting point.
-            -- West and Down need a descending cycle: -2 -> -12.
-            local actualMin = math.min(cycleMinOffset, cycleMaxOffset)
-            local actualMax = math.max(cycleMinOffset, cycleMaxOffset)
+        debugPrint(string.format("Direction changed to %s: view=%s, range=%d to %d, direction=%d",
+            currentDirection, currentView, cycleMinOffset, cycleMaxOffset, cycleDirection))
 
-            if currentDirection == "W" or currentDirection == "D" then
-                cycleDirection = -1            -- descending
-                sliceOffset = cycleMaxOffset   -- start at -2 then descend
-            else
-                cycleDirection = 1
-                sliceOffset = actualMin      -- default ascending behavior
-            end
-            
-            debugPrint(string.format("Direction changed to %s: view=%s, range=%d to %d, direction=%d", 
-                currentDirection, currentView, cycleMinOffset, cycleMaxOffset, cycleDirection))
-            
-            if currentData then
-                renderScanData()
-            end
+        if currentData then
+            recomputeSidePaneCache()
+            renderScanData()
         end
     end
 end
@@ -491,65 +392,19 @@ local function cycleSlice()
         return
     end
 
-    if currentDirection == "W" or currentDirection == "D" then
-        -- Descend from -2 to -12
-        sliceOffset = sliceOffset + cycleDirection -- cycleDirection is -1 here
-        if sliceOffset < cycleMinOffset then
-            -- cycleMinOffset is -12, wrap to -2 (cycleMaxOffset)
-            sliceOffset = cycleMaxOffset
-        end
-    else
-        -- Default ascending behavior
-        sliceOffset = sliceOffset + cycleDirection
-        local actualMin = math.min(cycleMinOffset, cycleMaxOffset)
-        local actualMax = math.max(cycleMinOffset, cycleMaxOffset)
-        if sliceOffset > actualMax then
-            sliceOffset = actualMin
-        elseif sliceOffset < actualMin then
-            sliceOffset = actualMax
-        end
-    end
+    sliceOffset = ScannerOrientation.nextSliceOffset({
+        direction = currentDirection,
+        cycleMinOffset = cycleMinOffset,
+        cycleMaxOffset = cycleMaxOffset,
+        cycleDirection = cycleDirection,
+    }, sliceOffset)
 
-    renderScanData()
+    -- Only update the map area to avoid side-pane flicker
+    renderMapArea()
 end
 
 -- ========== Input Handling ==========
-local function handleKeypress(key)
-    if key == keys.q then
-        mclear()
-        return false  -- Exit
-    elseif key == keys.r then
-        requestScan()
-    elseif key == keys.c then
-        autoCycleEnabled = not autoCycleEnabled
-        if currentData then renderScanData() end
-    elseif key == keys.w then
-        sliceOffset = sliceOffset + 1
-        if currentData then renderScanData() end
-    elseif key == keys.s then
-        sliceOffset = sliceOffset - 1
-        if currentData then renderScanData() end
-    elseif key == keys.d then
-        sliceThick = math.min(25, sliceThick + 1)
-        if currentData then renderScanData() end
-    elseif key == keys.a then
-        sliceThick = math.max(1, sliceThick - 1)
-        if currentData then renderScanData() end
-    elseif key == keys.v then
-        local views = {"top", "front", "side"}
-        local currentIndex = 1
-        for i, view in ipairs(views) do
-            if view == currentView then
-                currentIndex = i
-                break
-            end
-        end
-        currentIndex = currentIndex % #views + 1
-        currentView = views[currentIndex]
-        if currentData then renderScanData() end
-    end
-    return true  -- Continue
-end
+-- Manual key controls removed: display operates automatically
 
 -- ========== Main Event Loop ==========
 local function main()
@@ -588,6 +443,10 @@ local function main()
     if AUTO_CYCLE_INTERVAL > 0 then
         autoCycleTimer = os.startTimer(AUTO_CYCLE_INTERVAL)
     end
+    -- Hazards blink timer (independent of slice cycling)
+    local hazardBlinkTimer = os.startTimer(HAZARD_BLINK_INTERVAL)
+    -- Age refresh timer (lightweight age line update)
+    local ageRefreshTimer = os.startTimer(AGE_REFRESH_INTERVAL)
     
     -- Orientation update timer (check every 5 seconds)
     local orientationTimer = os.startTimer(5)
@@ -596,11 +455,12 @@ local function main()
     -- Scan watchdog timer
     local scanWatchdogTimer = os.startTimer(6)
     
-    -- Main event loop
-    while true do
+    -- Main event loop function
+    local function runEventLoop()
+      while true do
         local event, p1, p2, p3 = os.pullEvent()
-        
-    if event == "rednet_message" then
+
+        if event == "rednet_message" then
             local sender, message, protocol = p1, p2, p3
             if protocol == PROTOCOL and type(message) == "table" then
                 -- Check secret if configured
@@ -614,18 +474,30 @@ local function main()
                     end
                 end
             end
-            
-        elseif event == "key" then
-            if not handleKeypress(p1) then
-                break  -- Exit requested
+        elseif event == "scanner_message" then
+            -- Messages funneled via modules.scanner_network
+            local sender, message = p1, p2
+            if type(message) == "table" then
+                if SECRET == "" or message.secret == SECRET then
+                    if message.type == "scanResponse" and message.name == RELAY_NAME then
+                        handleScanResponse(message)
+                    elseif message.type == "statusResponse" and message.name == RELAY_NAME then
+                        handleStatusResponse(message)
+                    elseif message.type == "facing" or message.type == "orientation" then
+                        handleOrientationResponse(message)
+                    end
+                end
             end
-            
         elseif event == "timer" and p1 == autoScanTimer then
             -- Auto-scan
             if AUTO_SCAN_INTERVAL > 0 and relayOnline and not scanInProgress then
                 requestScan()
             end
             autoScanTimer = os.startTimer(AUTO_SCAN_INTERVAL)
+        elseif event == "timer" and p1 == pendingScanTimer then
+            pendingScanTimer = nil
+            waitingCooldown = false
+            requestScan()
             
         elseif event == "timer" and p1 == autoCycleTimer then
             -- Auto-cycle slices
@@ -638,6 +510,19 @@ local function main()
             -- Request orientation update
             requestOrientationData()
             orientationTimer = os.startTimer(5)
+        elseif event == "timer" and p1 == hazardBlinkTimer then
+            -- Update only blinking hazard lines; avoid heavy recompute and pane clears
+            renderHazardBlinkUpdate()
+            hazardBlinkTimer = os.startTimer(HAZARD_BLINK_INTERVAL)
+        elseif event == "timer" and p1 == ageRefreshTimer then
+            -- Update only the age text line in the side pane
+            ScannerRender.renderStatusAgeUpdate(monitor, {
+                BG_COLOR = BG_COLOR,
+                STATUS_COLOR = STATUS_COLOR,
+                formatGameAgeFn = formatGameAge,
+                lastScanGameTicks = lastScanGameTicks,
+            })
+            ageRefreshTimer = os.startTimer(AGE_REFRESH_INTERVAL)
         elseif event == "timer" and p1 == statusPollTimer then
             -- Poll relay status periodically or if stale
             if (not relayOnline) or (not currentData) or ((os.epoch("utc") - lastStatusResponseTime) > 15000) then
@@ -659,6 +544,7 @@ local function main()
             
         elseif event == "monitor_resize" then
             if currentData then
+                -- Re-render both panes to fit new size; cached side data reused
                 renderScanData()
             else
                 renderNoData()
@@ -677,7 +563,21 @@ local function main()
                 end
             end
         end
+      end
     end
+
+    -- Start reliable network listener in parallel
+    local function runNetworkPump()
+        local ok, ScannerNet = pcall(require, "modules.scanner_network")
+        if ok and ScannerNet and type(ScannerNet.start) == "function" then
+            ScannerNet.start(PROTOCOL, SECRET, "scanner_message", 0.5)
+        else
+            -- Fallback: do nothing; main loop will still handle rednet_message
+            while true do os.sleep(10) end
+        end
+    end
+
+    parallel.waitForAll(runNetworkPump, runEventLoop)
     
     print("Scanner Display shutting down")
 end

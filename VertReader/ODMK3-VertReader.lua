@@ -64,12 +64,15 @@ local function main()
 		local e, p1, p2, p3 = os.pullEvent()
 		
 		if e == "timer" and p1 == timerId then
-			-- Regular polling
+			-- Regular polling - broadcast on every tick so listeners always get current state
 			local o = detectOrientation()
-			if o and o ~= lastOrientation then
-				print("Orientation changed to: " .. o)
+			if o then
+				if o ~= lastOrientation then
+					print("Orientation changed to: " .. o)
+					lastOrientation = o
+				end
+				-- Broadcast every tick (not just on change) to ensure listeners sync quickly
 				broadcastOrientation(o)
-				lastOrientation = o
 			end
 			timerId = os.startTimer(1)
 			
@@ -82,7 +85,8 @@ local function main()
 				elseif msg.cmd == "queryOrientation" then
 					local o = detectOrientation() or lastOrientation
 					if o then 
-						rednet.send(sender, { type="orientation", name=NAME, orientation=o, secret=SECRET }, PROTOCOL)
+						-- Broadcast response so all listeners (unified, remote, etc.) receive it
+						broadcastOrientation(o)
 					end
 				end
 			end

@@ -15,6 +15,7 @@ local SPEED_RAISING = -128    -- Speed when raising cabin
 
 -- ========== State Variables ==========
 local cabinLowered = false  -- Track cabin state (false = raised, true = lowered)
+local currentVertical = "F" -- Track vertical orientation (F/U/D)
 
 -- ========== Network Setup ==========
 local function openAllModems()
@@ -63,6 +64,19 @@ end
 
 local function handleToggleCommand(rsc, message)
     if message.name == NAME and message.cmd == "toggle" then
+        -- Safety: block activation while machine is facing DOWN
+        if currentVertical == "D" then
+            print("[BLOCK] Cabin pulley toggle ignored: machine is facing DOWN")
+            -- Broadcast current status unchanged (optionally include reason)
+            rednet.broadcast({
+                type = "cabinPulleyStatus",
+                name = NAME,
+                lowered = cabinLowered,
+                reason = "facing_down",
+                secret = SECRET
+            }, PROTOCOL)
+            return true
+        end
         cabinLowered = not cabinLowered
         updateSpeed(rsc, cabinLowered)
         
@@ -89,6 +103,20 @@ local function handleStatusQuery(rsc, message)
             secret = SECRET
         }, PROTOCOL)
         return true
+    end
+    return false
+end
+
+local function handleOrientation(message)
+    if message.type == "orientation" and message.orientation then
+        local ori = tostring(message.orientation)
+        if ori == "F" or ori == "U" or ori == "D" then
+            if currentVertical ~= ori then
+                print("Orientation updated: " .. currentVertical .. " -> " .. ori)
+                currentVertical = ori
+            end
+            return true
+        end
     end
     return false
 end
@@ -137,7 +165,9 @@ local function main()
         local sender, message, protocol = rednet.receive(PROTOCOL, 1)
         if sender then
             if type(message) == "table" and (SECRET == "" or message.secret == SECRET) then
-                local handled = handleToggleCommand(rsc, message) or handleStatusQuery(rsc, message)
+                local handled = handleOrientation(message)
+                    or handleToggleCommand(rsc, message)
+                    or handleStatusQuery(rsc, message)
                 if handled then
                     print(string.format("Handled command from computer #%d", sender))
                 end

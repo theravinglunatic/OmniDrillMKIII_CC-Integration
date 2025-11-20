@@ -26,7 +26,7 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-CollectBuildBlocks.lua"] = "Build blocks collection controller",
     ["ODMK3-CollectNatBlocks.lua"] = "Natural blocks collection controller", 
     ["ODMK3-CollectRawOre.lua"] = "Raw ore collection controller",
-    ["ODMK3-CommandCenter.lua"] = "Handheld pocket computer GUI",
+    ["ODMK3-Command.lua"] = "Handheld pocket computer GUI",
     ["ODMK3-DrillControlON.lua"] = "Drill activation controller",
     ["ODMK3-DriveController.lua"] = "Main movement controller",
     ["ODMK3-DriveHelper.lua"] = "Drive helper utilities",
@@ -34,16 +34,11 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-GantryAction.lua"] = "Sequenced gearshift controller",
     ["ODMK3-GantryShift.lua"] = "Gantry direction controller",
     ["ODMK3-GeoScannerRelay.lua"] = "Geo scanner relay computer",
-    ["ODMK3-OnboardCommand.lua"] = "3x3 monitor touchscreen GUI",
     ["ODMK3-ScannerDisplay.lua"] = "Geo scanner display monitor",
     ["ODMK3-VertReader.lua"] = "Vertical orientation reader (F/U/D)",
     ["ODMK3-VertRotator.lua"] = "Vertical rotation controller",
-    ["OmniDrill-Monitor.lua"] = "Status display with metrics",
     ["ODMK3-UtilityRSC.lua"] = "Rotational Speed Controller utility",
-    ["ODMK3-UnifiedCommand.lua"] = "Unified Command Center (Movement + Navigation + Utility)",
-    -- Newly added components
     ["ODMK3-CabinPulley.lua"] = "Cabin pulley controller (raise/lower cabin)",
-    ["ODMK3-RemoteCommand.lua"] = "Portable handheld command GUI"
 }
 
 -- Role mappings (script name -> friendly role name)
@@ -55,7 +50,6 @@ local ROLE_MAPPINGS = {
     ["ODMK3-CollectBuildBlocks.lua"] = "collect-build-blocks",
     ["ODMK3-CollectNatBlocks.lua"] = "collect-nat-blocks",
     ["ODMK3-CollectRawOre.lua"] = "collect-raw-ore",
-    ["ODMK3-CommandCenter.lua"] = "command-center",
     ["ODMK3-DrillControlON.lua"] = "drill-control",
     ["ODMK3-DriveController.lua"] = "drive-controller", 
     ["ODMK3-DriveHelper.lua"] = "drive-helper",
@@ -63,15 +57,12 @@ local ROLE_MAPPINGS = {
     ["ODMK3-GantryAction.lua"] = "gantry-action",
     ["ODMK3-GantryShift.lua"] = "gantry-shift",
     ["ODMK3-GeoScannerRelay.lua"] = "geo-scanner-relay",
-    ["ODMK3-OnboardCommand.lua"] = "onboard-command",
     ["ODMK3-ScannerDisplay.lua"] = "scanner-display",
     ["ODMK3-VertReader.lua"] = "vert-reader",
     ["ODMK3-VertRotator.lua"] = "vert-rotator",
-    ["OmniDrill-Monitor.lua"] = "monitor",
     ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
-    ["ODMK3-UnifiedCommand.lua"] = "unified-command",
     ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
-    ["ODMK3-RemoteCommand.lua"] = "portable-command"
+    ["ODMK3-Command.lua"] = "portable-command"
 }
 
 -- ========== State Tracking ==========
