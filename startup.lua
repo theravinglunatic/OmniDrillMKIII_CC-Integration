@@ -5,7 +5,7 @@
 -- ========== Configuration ==========
 local DEPLOY_PROTOCOL = "ODMK3-Deploy"
 local SECRET = ""
-local DEBUG = false  -- Set to true for verbose logging
+local DEBUG = true  -- Set to false in production for maximum startup speed
 
 -- Role storage
 local ROLE_FILE = ".odmk3_role"
@@ -39,11 +39,11 @@ local AVAILABLE_ROLES = {
     ["utility-display"] = "ODMK3-Utility.lua",
     ["vert-reader"] = "ODMK3-VertReader.lua",
     ["vert-rotator"] = "ODMK3-VertRotator.lua",
-    ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
-    ["cabin-pulley"] = "ODMK3-CabinPulley.lua"
-}
-
--- Role descriptions
+    ["monitor"] = "OmniDrill-Monitor.lua",
+        ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
+    ["cabin-pulley"] = "ODMK3-CabinPulley.lua",
+    ["boot-server"] = "ODMK3-BootServer.lua"
+}-- Role descriptions
 local ROLE_DESCRIPTIONS = {
     ["auto-drive"] = "Automated movement timing controller",
     ["vault-threshold"] = "Vault capacity monitoring system",
@@ -64,13 +64,14 @@ local ROLE_DESCRIPTIONS = {
     ["vert-reader"] = "Vertical orientation reader (F/U/D)",
     ["vert-rotator"] = "Vertical rotation controller",
     ["utility-rsc"] = "Rotational Speed Controller utility",
-    ["cabin-pulley"] = "Cabin pulley controller (raise/lower cabin)"
+    ["cabin-pulley"] = "Cabin pulley controller (raise/lower cabin)",
+    ["boot-server"] = "Centralized script deployment server"
 }
 
+-- (Section intentionally left blank after revert)
+
 -- ========== State Management ==========
-local currentRole = nil
-local currentScript = nil
-local modem = nil
+local currentRole, currentScript, modem = nil, nil, nil
 
 local function loadRole()
     if fs.exists(ROLE_FILE) then
@@ -78,8 +79,6 @@ local function loadRole()
         if file then
             currentRole = file.readAll()
             file.close()
-            
-            -- Also load the associated script name
             if fs.exists(SCRIPT_FILE) then
                 local scriptFile = fs.open(SCRIPT_FILE, "r")
                 if scriptFile then
@@ -87,34 +86,60 @@ local function loadRole()
                     scriptFile.close()
                 end
             end
-            
             return currentRole
         end
     end
     return nil
 end
 
-local function saveRole(role)
-    local file = fs.open(ROLE_FILE, "w")
-    if file then
-        file.write(role)
-        file.close()
-        
-        -- Also save the script name
-        local script = AVAILABLE_ROLES[role]
-        if script then
-            local scriptFile = fs.open(SCRIPT_FILE, "w")
-            if scriptFile then
-                scriptFile.write(script)
-                scriptFile.close()
+local function fetchBootServer()
+    print("Fetching boot server from GitHub...")
+    local url = "https://raw.githubusercontent.com/theravinglunatic/OmniDrillMKIII_CC-Integration/refs/heads/experimental/BootServer/ODMK3-BootServer.lua"
+    
+    for attempt = 1, 3 do
+        local success, resp = pcall(function() return http.get(url, nil, true) end)
+        if success and resp then
+            local content = resp.readAll()
+            resp.close()
+            
+            if content and content ~= "" and not content:match("404: Not Found") then
+                local f = fs.open("ODMK3-BootServer.lua", "w")
+                if f then
+                    f.write(content)
+                    f.close()
+                    print("Boot server downloaded successfully (" .. #content .. " bytes)")
+                    shell.setAlias("boot", "ODMK3-BootServer.lua")
+                    return true
+                end
             end
         end
-        
-        currentRole = role
-        currentScript = script
-        return true
+        if attempt < 3 then
+            print("Retry " .. attempt .. "/3...")
+            sleep(1)
+        end
     end
+    
+    print("ERROR: Failed to fetch boot server from GitHub")
+    print("Check network connectivity and HTTP API settings")
     return false
+end
+
+local function saveRole(role)
+    local file = fs.open(ROLE_FILE, "w")
+    if not file then return false end
+    file.write(role)
+    file.close()
+    local script = AVAILABLE_ROLES[role]
+    if script then
+        local scriptFile = fs.open(SCRIPT_FILE, "w")
+        if scriptFile then
+            scriptFile.write(script)
+            scriptFile.close()
+        end
+    end
+    currentRole = role
+    currentScript = script
+    return true
 end
 
 -- ========== Role Selection Interface ==========
@@ -280,6 +305,8 @@ local function handleDeployment(script, content)
         accept = true
     elseif currentRole == "unified-command" and script:match("^modules/[%w_%-]+%.lua$") then
         accept = true
+    elseif currentRole == "portable-command" and script:match("^modules/[%w_%-]+%.lua$") then
+        accept = true
     end
     if not accept then
         log("Ignoring " .. script .. " (not for our role: " .. (currentRole or "none") .. ")")
@@ -346,23 +373,12 @@ local function runScript()
     end
     
     if not fs.exists(currentScript) then
-        if currentRole == "portable-command" then
-            print("ERROR: " .. currentScript .. " not found!")
-            print("Run ODMK3-Bootstrap.lua to fetch required files from GitHub.")
-            print("Command: ODMK3-Bootstrap")
-            sleep(10)
-            return
-        end
         print("Script " .. currentScript .. " not found. Waiting for deployment...")
         return  
     end
     
-    -- Set boot alias for portable-command role
-    if currentRole == "portable-command" and fs.exists("ODMK3-BootServer.lua") then
-        shell.setAlias("boot", "ODMK3-BootServer.lua")
-    end
-    
-    log("Starting role script: " .. currentScript)
+    print("Starting role script: " .. currentScript)
+    -- Removed startup delay for faster launch
     
     if currentRole == "utility-display" then
         -- Run scanner display and utility relay together
@@ -436,34 +452,56 @@ local function main(...)
     end
 
     -- Load existing role immediately (before network) to minimize time-to-script
-    currentRole = loadRole()
-    if currentRole then 
-        currentScript = AVAILABLE_ROLES[currentRole]
+    currentRole = loadRole(); if currentRole then currentScript = AVAILABLE_ROLES[currentRole] end
+    
+    -- Boot-server must fetch its own script from GitHub (cannot deploy to itself)
+    if currentRole == "boot-server" then
+        if not fetchBootServer() then
+            print("")
+            print("Boot server script is required but fetch failed.")
+            if fs.exists("ODMK3-BootServer.lua") then
+                print("Found local copy, using cached version.")
+                print("WARNING: May be outdated.")
+            else
+                print("No local copy found. Cannot continue.")
+                print("")
+                print("Press any key to retry...")
+                os.pullEvent("key")
+                os.reboot()
+                return
+            end
+        end
     end
+
+    -- Initialize network (non-blocking & fast)
+    local hasNetwork = initNetwork()
 
     -- If no saved role, enter selection (one-time interactive path)
     if not currentRole then
         print("No role configured. Please select a role for this computer.")
         print()
-        currentRole = selectRole()
-        currentScript = AVAILABLE_ROLES[currentRole]
+        currentRole = selectRole(); currentScript = AVAILABLE_ROLES[currentRole]
+        
+        -- Fetch boot-server if selected
+        if currentRole == "boot-server" then
+            if not fetchBootServer() and not fs.exists("ODMK3-BootServer.lua") then
+                print("")
+                print("ERROR: Cannot start boot-server without the script.")
+                print("Press any key to reboot and try again...")
+                os.pullEvent("key")
+                os.reboot()
+                return
+            end
+        end
     else
         -- Minimal output for fast boot; only show when DEBUG enabled
         if DEBUG then
             print("Configured role: " .. currentRole .. (currentScript and (" (" .. currentScript .. ")") or ""))
         end
     end
+            -- No immediate validation; will wait for deployment if script missing.
 
-    -- Portable-command role: skip network, run command script directly
-    if currentRole == "portable-command" then
-        while true do
-            runScript()
-            sleep(0)
-        end
-    end
-
-    -- All other roles: initialize network and start listeners
-    local hasNetwork = initNetwork()
+    -- Start listeners / script immediately
     if hasNetwork then
         if DEBUG then log("Starting network listener...") end
         parallel.waitForAny(
