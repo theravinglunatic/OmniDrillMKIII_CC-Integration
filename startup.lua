@@ -43,6 +43,7 @@ local AVAILABLE_ROLES = {
         ["utility-rsc"] = "ODMK3-UtilityRSC.lua",
     ["cabin-pulley"] = "ODMK3-CabinPulley.lua",
     ["boot-server"] = "ODMK3-BootServer.lua"
+    , ["cabin-sticker"] = "ODMK3-CabinSticker.lua"
 }-- Role descriptions
 local ROLE_DESCRIPTIONS = {
     ["drive-utility"] = "Drive utility & movement timing controller",
@@ -66,6 +67,7 @@ local ROLE_DESCRIPTIONS = {
     ["utility-rsc"] = "Rotational Speed Controller utility",
     ["cabin-pulley"] = "Cabin pulley controller (raise/lower cabin)",
     ["boot-server"] = "Centralized script deployment server"
+    , ["cabin-sticker"] = "Cabin sticker retract/extend controller"
 }
 
 -- (Section intentionally left blank after revert)
