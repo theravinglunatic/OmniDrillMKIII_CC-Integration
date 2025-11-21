@@ -307,14 +307,20 @@ local function handleDeployment(script, content)
     
     -- Check if this script matches our role
     local ourScript = AVAILABLE_ROLES[currentRole or ""]
-    -- Accept role's main script, startup.lua, and unified-command modules
+    -- Accept role's main script, startup.lua, and module files when this role's
+    -- main script is one of the module-enabled scripts (Command/Utility/ScannerDisplay)
     local accept = false
     if script == ourScript or script == "startup.lua" then
         accept = true
-    elseif currentRole == "unified-command" and script:match("^modules/[%w_%-]+%.lua$") then
-        accept = true
-    elseif currentRole == "portable-command" and script:match("^modules/[%w_%-]+%.lua$") then
-        accept = true
+    elseif script:match("^modules/[%w_%-]+%.lua$") then
+        local moduleEnabled = (
+            ourScript == "ODMK3-Command.lua" or
+            ourScript == "ODMK3-Utility.lua" or
+            ourScript == "ODMK3-ScannerDisplay.lua"
+        )
+        if moduleEnabled then
+            accept = true
+        end
     end
     if not accept then
         log("Ignoring " .. script .. " (not for our role: " .. (currentRole or "none") .. ")")
