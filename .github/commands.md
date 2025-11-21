@@ -1,45 +1,52 @@
 ## Sync from in-game ComputerCraft computers to "CC Integration Copy Here"
 
-Date: 2025-10-26
+Date: 2025-11-20
 
-PowerShell commands executed successfully:
+Updated PowerShell sync reflecting removal of Unified/Remote command and new DriveUtility, Command, and Utility module sets:
 
 ```
-$src = "C:\Users\Lunatic\AppData\Roaming\gdlauncher_carbon\data\instances\Omni-Drill CC Developer1\instance\saves\Omni-Drill Developer CC\computercraft\computer"
+$src = "C:\Users\Lunatic\AppData\Roaming\gdlauncher_carbon\data\instances\Omni-Drill CC Developer1\instance\saves\Omni-Drill MKIII CC Developer\computercraft\computer"
 $dst = "C:\Users\Lunatic\OneDrive\Projects\Omni Drill MKIII\CC Integration Copy Here"
 $computers = Get-ChildItem $src -Directory | Where-Object { $_.Name -ne ".github" }
 foreach ($c in $computers) {
 	$files = Get-ChildItem $c.FullName -File | Where-Object { $_.Name -ne "startup.lua" -and $_.Name -notmatch "^\." }
+	$hasCommand = $false
+	$hasUtility = $false
 	foreach ($f in $files) {
+		if ($f.Name -eq "ODMK3-Command.lua") { $hasCommand = $true }
+		if ($f.Name -eq "ODMK3-Utility.lua" -or $f.Name -eq "ODMK3-ScannerDisplay.lua") { $hasUtility = $true }
 		if ($f.Name -like "ODMK3-*.lua" -or $f.Name -like "OmniDrill-*.lua") {
 			$name = $f.Name -replace '^ODMK3-', '' -replace '^OmniDrill-', '' -replace '\.lua$',''
 			$target = Join-Path $dst $name
 			if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
 			Copy-Item $f.FullName -Destination (Join-Path $target $f.Name) -Force
+			Write-Host "Copied $($f.Name) -> $name\"
 		}
 	}
-	if ($c.Name -eq "21") {
-		$modSrc = Join-Path $c.FullName "modules"
-		$unifiedDst = Join-Path $dst "UnifiedCommand"
-		if (-not (Test-Path $unifiedDst)) { New-Item -ItemType Directory -Path $unifiedDst -Force | Out-Null }
-		if (Test-Path $modSrc) { Copy-Item $modSrc -Destination $unifiedDst -Recurse -Force }
-		foreach ($state in "unified_state","onboard_state") {
-			$sf = Join-Path $c.FullName $state
-			if (Test-Path $sf) { Copy-Item $sf -Destination $unifiedDst -Force }
+	# Generic modules copy: if a computer hosts Command or Utility scripts and has a modules folder, copy to matching target
+	$modSrc = Join-Path $c.FullName "modules"
+	if (Test-Path $modSrc) {
+		if ($hasCommand) {
+			$commandDst = Join-Path $dst "Command"
+			if (-not (Test-Path $commandDst)) { New-Item -ItemType Directory -Path $commandDst -Force | Out-Null }
+			Copy-Item $modSrc -Destination $commandDst -Recurse -Force
+			Write-Host "Copied Command modules"
 		}
-	}
-	if ($c.Name -eq "0") {
-		$pcDst = Join-Path $dst "RemoteCommand"
-		if (-not (Test-Path $pcDst)) { New-Item -ItemType Directory -Path $pcDst -Force | Out-Null }
-		$csf = Join-Path $c.FullName "command_state"
-		if (Test-Path $csf) { Copy-Item $csf -Destination $pcDst -Force }
+		if ($hasUtility) {
+			$utilityDst = Join-Path $dst "Utility"
+			if (-not (Test-Path $utilityDst)) { New-Item -ItemType Directory -Path $utilityDst -Force | Out-Null }
+			Copy-Item $modSrc -Destination $utilityDst -Recurse -Force
+			Write-Host "Copied Utility modules"
+		}
 	}
 }
 ```
 
 Notes:
-- Skips startup.lua and dotfiles (e.g., .odmk3_role).
-- Creates component folders automatically (e.g., AutoDrive, Monitor, UnifiedCommand).
-- Copies UnifiedCommand/modules and state files (unified_state, onboard_state).
-- Copies RemoteCommand/command_state from computer 0.
+- Skips `startup.lua` and dotfiles.
+- Automatically creates component folders (e.g., `DriveUtility`, `Command`, `Utility`).
+- DriveUtility replaces legacy AutoDrive (file now `ODMK3-DriveUtility.lua`).
+- Command and Utility computers each use a `modules` folder; Utility also hosts `ODMK3-ScannerDisplay.lua` alongside `ODMK3-Utility.lua`.
+- Unified/Remote command legacy handling removed; state files (`unified_state`, `onboard_state`, `command_state`) no longer copied.
+- Safe to rerun: overwrites existing files, preserves other folders.
 

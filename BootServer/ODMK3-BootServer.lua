@@ -40,6 +40,7 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-VertRotator.lua"] = "Vertical rotation controller",
     ["ODMK3-UtilityRSC.lua"] = "Rotational Speed Controller utility",
     ["ODMK3-CabinPulley.lua"] = "Cabin pulley controller (raise/lower cabin)",
+    ["ODMK3-CabinSticker.lua"] = "Cabin sticker retract/extend controller",
 }
 
 -- Role mappings (script name -> friendly role name)
@@ -65,6 +66,7 @@ local ROLE_MAPPINGS = {
     ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
     ["ODMK3-Command.lua"] = "portable-command"
     , ["ODMK3-Utility.lua"] = "utility"
+    , ["ODMK3-CabinSticker.lua"] = "cabin-sticker"
 }
 
 -- ========== State Tracking ==========
