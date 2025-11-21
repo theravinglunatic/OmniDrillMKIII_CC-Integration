@@ -65,7 +65,7 @@ local ROLE_MAPPINGS = {
     ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
     ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
     ["ODMK3-Command.lua"] = "portable-command"
-    , ["ODMK3-Utility.lua"] = "utility"
+    , ["ODMK3-Utility.lua"] = "utility-display"
     , ["ODMK3-CabinSticker.lua"] = "cabin-sticker"
 }
 
