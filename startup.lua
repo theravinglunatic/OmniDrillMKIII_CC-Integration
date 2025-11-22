@@ -60,7 +60,7 @@ local ROLE_DESCRIPTIONS = {
     ["gantry-action"] = "Sequenced gearshift controller",
     ["gantry-shift"] = "Gantry direction controller",
     ["geo-scanner-relay"] = "Geo scanner relay computer",
-    ["utility-display"] = "Utility display + vault relay",
+    ["utility-display"] = "Utility display (includes scanner module + vault relay)",
     ["vert-reader"] = "Vertical orientation reader (F/U/D)",
     ["vert-rotator"] = "Vertical rotation controller",
     ["utility-rsc"] = "Rotational Speed Controller utility",
@@ -68,8 +68,6 @@ local ROLE_DESCRIPTIONS = {
     ["boot-server"] = "Centralized script deployment server"
     , ["cabin-sticker"] = "Cabin sticker retract/extend controller"
 }
-
--- (Section intentionally left blank after revert)
 
 -- ========== State Management ==========
 local currentRole, currentScript, modem = nil, nil, nil
@@ -307,17 +305,12 @@ local function handleDeployment(script, content)
     -- Check if this script matches our role
     local ourScript = AVAILABLE_ROLES[currentRole or ""]
     -- Accept role's main script, startup.lua, and module files when this role's
-    -- main script is one of the module-enabled scripts (Command/Utility/ScannerDisplay)
+    -- main script is module-enabled (Command or Utility; ScannerDisplay merged into Utility)
     local accept = false
     if script == ourScript or script == "startup.lua" then
         accept = true
     elseif script:match("^modules/[%w_%-]+%.lua$") then
-        local moduleEnabled = (
-            ourScript == "ODMK3-Command.lua" or
-            ourScript == "ODMK3-Utility.lua" or
-            ourScript == "ODMK3-ScannerDisplay.lua"
-        )
-        if moduleEnabled then
+        if ourScript == "ODMK3-Command.lua" or ourScript == "ODMK3-Utility.lua" then
             accept = true
         end
     end
@@ -394,24 +387,12 @@ local function runScript()
     -- Removed startup delay for faster launch
     
     if currentRole == "utility-display" then
-        -- Run scanner display and utility relay together
-        print("Utility Display mode: Starting Scanner and Utility in separate tabs")
-        if multishell then
-            local tab1 = multishell.launch({}, "ODMK3-ScannerDisplay.lua")
-            multishell.setTitle(tab1, "Scanner Display")
-            local tab2 = multishell.launch({}, "ODMK3-Utility.lua")
-            multishell.setTitle(tab2, "Utility Relay")
-            -- Keep this shell idle while tabs run
-            while true do sleep(60) end
-        else
-            parallel.waitForAny(
-                function()
-                    pcall(function() shell.run("ODMK3-ScannerDisplay.lua") end)
-                end,
-                function()
-                    pcall(function() shell.run("ODMK3-Utility.lua") end)
-                end
-            )
+        -- Unified Utility mode: ODMK3-Utility internally requires scanner display module
+        local success, err = pcall(function() shell.run("ODMK3-Utility.lua") end)
+        if not success then
+            print("Utility role error: " .. tostring(err))
+            print("Restarting in 5 seconds...")
+            sleep(5)
         end
     else
         -- Standard script execution for other roles

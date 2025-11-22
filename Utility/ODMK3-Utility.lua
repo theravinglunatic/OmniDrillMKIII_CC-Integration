@@ -14,10 +14,11 @@ local function main()
     elseif type(ScannerDisplay.main) == "function" then
       ScannerDisplay.main()
     else
-      print("ScannerDisplay module loaded but has no runnable entry; falling back to vault relay")
+      print("[Utility] ScannerDisplay module loaded but no entry point; starting vault relay fallback")
       VaultRelay.start()
     end
   else
+    print("[Utility] ScannerDisplay module absent; starting vault relay only")
     VaultRelay.start()
   end
 end

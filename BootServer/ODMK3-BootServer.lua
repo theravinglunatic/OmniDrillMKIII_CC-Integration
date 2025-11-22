@@ -35,7 +35,6 @@ local AVAILABLE_SCRIPTS = {
     ["ODMK3-GantryAction.lua"] = "Sequenced gearshift controller",
     ["ODMK3-GantryShift.lua"] = "Gantry direction controller",
     ["ODMK3-GeoScannerRelay.lua"] = "Geo scanner relay computer",
-    ["ODMK3-ScannerDisplay.lua"] = "Geo scanner display monitor",
     ["ODMK3-VertReader.lua"] = "Vertical orientation reader (F/U/D)",
     ["ODMK3-VertRotator.lua"] = "Vertical rotation controller",
     ["ODMK3-UtilityRSC.lua"] = "Rotational Speed Controller utility",
@@ -59,14 +58,13 @@ local ROLE_MAPPINGS = {
     ["ODMK3-GantryAction.lua"] = "gantry-action",
     ["ODMK3-GantryShift.lua"] = "gantry-shift",
     ["ODMK3-GeoScannerRelay.lua"] = "geo-scanner-relay",
-    ["ODMK3-ScannerDisplay.lua"] = "scanner-display",
     ["ODMK3-VertReader.lua"] = "vert-reader",
     ["ODMK3-VertRotator.lua"] = "vert-rotator",
     ["ODMK3-UtilityRSC.lua"] = "utility-rsc",
     ["ODMK3-CabinPulley.lua"] = "cabin-pulley",
-    ["ODMK3-Command.lua"] = "portable-command"
-    , ["ODMK3-Utility.lua"] = "utility-display"
-    , ["ODMK3-CabinSticker.lua"] = "cabin-sticker"
+    ["ODMK3-Command.lua"] = "portable-command",
+    ["ODMK3-Utility.lua"] = "utility-display",
+    ["ODMK3-CabinSticker.lua"] = "cabin-sticker"
 }
 
 -- ========== State Tracking ==========
@@ -178,6 +176,7 @@ local COMMAND_MODULES = {
 
 local UTILITY_MODULES = {
     "config.lua",
+    "ODMK3-ScannerDisplay.lua", -- migrated scanner display main into modules
     "scanner_cache.lua",
     "scanner_config.lua",
     "scanner_network.lua",
@@ -191,7 +190,6 @@ local UTILITY_MODULES = {
 local MODULE_SETS = {
     ["ODMK3-Command.lua"] = { repoFolder = "Command", modules = COMMAND_MODULES },
     ["ODMK3-Utility.lua"] = { repoFolder = "Utility", modules = UTILITY_MODULES },
-    ["ODMK3-ScannerDisplay.lua"] = { repoFolder = "Utility", modules = UTILITY_MODULES },
 }
 
 local function downloadModuleSet(scriptName)
@@ -245,7 +243,7 @@ local function downloadAllScripts()
     
     print()
     -- Download module sets for all scripts that need them
-    print("Fetching module sets (Command / Utility / ScannerDisplay)...")
+    print("Fetching module sets (Command / Utility)...")
     local totalMods = 0
     local expectedMods = 0
     local countedScripts = {}
